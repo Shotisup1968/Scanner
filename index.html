@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Scanner</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#11172a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scanner">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===================== ACCUEIL ===================== -->
+<section id="view-home" class="view">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Scanner</h1>
+    </div>
+  </header>
+
+  <div id="home-empty" class="empty-state hidden">
+    <div class="empty-illustration" aria-hidden="true">
+      <svg viewBox="0 0 120 120" width="96" height="96">
+        <rect x="20" y="14" width="70" height="92" rx="10" fill="none" stroke="currentColor" stroke-width="4"/>
+        <line x1="34" y1="40" x2="76" y2="40" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        <line x1="34" y1="56" x2="76" y2="56" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        <line x1="34" y1="72" x2="58" y2="72" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <p class="empty-title">Aucun document pour l'instant</p>
+    <p class="empty-sub">Scanne ton premier document — il reste uniquement sur ton téléphone.</p>
+    <button id="btn-empty-scan" class="btn btn-primary">Nouveau scan</button>
+  </div>
+
+  <ul id="doc-list" class="doc-list"></ul>
+
+  <button id="btn-fab" class="fab" aria-label="Nouveau scan">
+    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+</section>
+
+<!-- ===================== CAMÉRA ===================== -->
+<section id="view-camera" class="view hidden">
+  <div class="camera-stage">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <div class="camera-guide" aria-hidden="true"></div>
+  </div>
+
+  <div class="camera-topbar">
+    <button id="btn-camera-close" class="icon-btn" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+    <span id="camera-count" class="camera-count hidden">0 page</span>
+    <span class="spacer"></span>
+  </div>
+
+  <div id="camera-error" class="camera-error hidden">
+    <p>Impossible d'accéder à l'appareil photo.</p>
+    <p class="small">Vérifie l'autorisation caméra dans Réglages Safari, puis réessaie.</p>
+  </div>
+
+  <div class="camera-bottombar">
+    <div id="camera-thumbs" class="camera-thumbs"></div>
+    <div class="camera-controls">
+      <button id="btn-camera-review" class="btn btn-ghost-light" disabled>Aperçu</button>
+      <button id="btn-shutter" class="shutter-btn" aria-label="Capturer"><span></span></button>
+      <button id="btn-camera-done" class="btn btn-primary" disabled>Terminer</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== RELECTURE / PAGES ===================== -->
+<section id="view-review" class="view hidden">
+  <header class="topbar">
+    <button id="btn-review-back" class="icon-btn" aria-label="Retour">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <h1>Relecture</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <ul id="review-list" class="page-list"></ul>
+
+  <button id="btn-add-page" class="btn btn-outline btn-block">＋ Ajouter une page</button>
+
+  <div class="save-bar">
+    <input id="doc-name-input" type="text" placeholder="Nom du document (ex. Facture EDF)" maxlength="80">
+    <button id="btn-save-doc" class="btn btn-primary btn-block">Créer le PDF</button>
+  </div>
+</section>
+
+<!-- ===================== RECADRAGE ===================== -->
+<section id="view-crop" class="view hidden">
+  <header class="topbar">
+    <button id="btn-crop-cancel" class="icon-btn" aria-label="Annuler">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+    <h1>Recadrer</h1>
+    <button id="btn-crop-apply" class="link-btn">Valider</button>
+  </header>
+  <div id="crop-stage" class="crop-stage">
+    <img id="crop-image" alt="">
+    <div id="crop-overlay" class="crop-overlay"></div>
+  </div>
+</section>
+
+<!-- ===================== DOCUMENT ===================== -->
+<section id="view-doc" class="view hidden">
+  <header class="topbar">
+    <button id="btn-doc-back" class="icon-btn" aria-label="Retour">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <h1 id="doc-title">Document</h1>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="doc-preview">
+    <img id="doc-thumb" alt="Aperçu du document">
+    <p id="doc-meta" class="doc-meta"></p>
+  </div>
+
+  <div class="doc-actions">
+    <button id="btn-doc-share" class="btn btn-primary btn-block">Partager / Envoyer par mail</button>
+    <button id="btn-doc-open" class="btn btn-outline btn-block">Voir le PDF</button>
+    <button id="btn-doc-rename" class="btn btn-outline btn-block">Renommer</button>
+    <button id="btn-doc-delete" class="btn btn-danger btn-block">Supprimer</button>
+  </div>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+
+<div id="pdf-viewer" class="pdf-viewer hidden">
+  <div class="pdf-viewer-bar">
+    <button id="btn-pdf-viewer-close" class="icon-btn" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
+    <span id="pdf-viewer-title" class="pdf-viewer-title"></span>
+    <span class="spacer"></span>
+  </div>
+  <iframe id="pdf-viewer-frame" class="pdf-viewer-frame" title="Aperçu PDF"></iframe>
+</div>
+
+<script src="js/vendor/jspdf.umd.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

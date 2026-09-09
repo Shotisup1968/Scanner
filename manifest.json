@@ -1,0 +1,17 @@
+{
+  "name": "Scanner",
+  "short_name": "Scanner",
+  "description": "Numérisez vos documents papier en PDF et partagez-les instantanément — sans pub, sans compte, sans abonnement.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#11172a",
+  "theme_color": "#11172a",
+  "lang": "fr",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
