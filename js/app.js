@@ -206,14 +206,26 @@ async function openCamera() {
 }
 
 async function startStream() {
+  btnShutter.disabled = true;
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       audio: false,
     });
     cameraVideo.srcObject = mediaStream;
+
+    // getUserMedia() peut se résoudre avant que les dimensions de la vidéo
+    // soient disponibles. Une capture trop rapide créerait sinon un canvas 0×0.
+    if (cameraVideo.readyState < 1 || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+      await new Promise((resolve) => {
+        cameraVideo.addEventListener('loadedmetadata', resolve, { once: true });
+      });
+    }
+    await cameraVideo.play();
+    btnShutter.disabled = false;
   } catch (err) {
     console.error('Camera error', err);
+    stopStream();
     cameraError.classList.remove('hidden');
   }
 }
@@ -223,6 +235,8 @@ function stopStream() {
     mediaStream.getTracks().forEach((t) => t.stop());
     mediaStream = null;
   }
+  cameraVideo.srcObject = null;
+  btnShutter.disabled = true;
 }
 
 function renderCameraThumbs() {
@@ -242,6 +256,10 @@ function renderCameraThumbs() {
 async function capturePhoto() {
   if (!mediaStream) return;
   const video = cameraVideo;
+  if (!video.videoWidth || !video.videoHeight) {
+    showToast('La caméra n’est pas encore prête');
+    return;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -432,7 +450,11 @@ btnSaveDoc.addEventListener('click', async () => {
     await openDocDetail(doc.id);
   } catch (err) {
     console.error(err);
-    showToast('Erreur lors de la création du PDF');
+    if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+      showToast('Stockage presque plein — libère de l’espace puis réessaie');
+    } else {
+      showToast('Erreur lors de la création du PDF');
+    }
   } finally {
     btnSaveDoc.disabled = false;
     btnSaveDoc.textContent = 'Créer le PDF';
@@ -569,9 +591,11 @@ function startDrag(e, key) {
   function onUp() {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 btnCropReset.addEventListener('click', () => {
@@ -585,9 +609,31 @@ btnCropCancel.addEventListener('click', () => {
   showView('review');
 });
 
+function isValidCropQuad(corners) {
+  const pts = [corners.tl, corners.tr, corners.br, corners.bl];
+  const cross = (a, b, c) => (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+  const signs = pts.map((p, i) => cross(p, pts[(i + 1) % 4], pts[(i + 2) % 4]));
+  const allPositive = signs.every((v) => v > 1);
+  const allNegative = signs.every((v) => v < -1);
+  if (!allPositive && !allNegative) return false;
+
+  let twiceArea = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i], b = pts[(i + 1) % 4];
+    twiceArea += a.x * b.y - b.x * a.y;
+  }
+  const minArea = Math.max(400, cropBox.width * cropBox.height * 0.005);
+  return Math.abs(twiceArea) / 2 >= minArea;
+}
+
 btnCropApply.addEventListener('click', async () => {
   const page = findPage(cropTargetUid);
   if (!page || !cropBox || !cropCorners) { showView('review'); return; }
+
+  if (!isValidCropQuad(cropCorners)) {
+    showToast('Les 4 coins doivent former un quadrilatère valide');
+    return;
+  }
 
   btnCropApply.disabled = true;
   btnCropApply.textContent = '…';
@@ -653,7 +699,10 @@ btnDocShare.addEventListener('click', () => {
   const file = new File([currentDoc.pdfBlob], filename, { type: 'application/pdf' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     navigator.share({ files: [file], title: currentDoc.name }).catch((err) => {
-      if (err && err.name !== 'AbortError') showToast('Partage annulé');
+      if (err && err.name !== 'AbortError') {
+        console.error('Share error', err);
+        showToast('Le partage a échoué');
+      }
     });
   } else {
     downloadBlob(currentDoc.pdfBlob, filename);
@@ -707,7 +756,14 @@ btnDocOcr.addEventListener('click', async () => {
     showToast('Texte rendu cherchable ✅');
   } catch (err) {
     console.error('OCR impossible', err);
-    showToast('La reconnaissance de texte a échoué');
+    // Le PDF avec la couche de texte est reconstruit en entier (saveDocument),
+    // donc la même erreur de quota IndexedDB peut se produire ici qu'à la
+    // création initiale du document.
+    if (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+      showToast('Stockage presque plein — libère de l’espace puis réessaie');
+    } else {
+      showToast('La reconnaissance de texte a échoué');
+    }
     btnDocOcr.disabled = false;
     btnDocOcr.textContent = 'Rendre le texte cherchable (OCR)';
   }
@@ -733,8 +789,23 @@ btnDocDelete.addEventListener('click', async () => {
 });
 
 /* ---------------------------------------------------------------- */
-/* service worker + démarrage                                        */
+/* stockage persistant + service worker + démarrage                  */
 /* ---------------------------------------------------------------- */
+
+async function requestPersistentStorage() {
+  try {
+    if (!navigator.storage?.persisted || !navigator.storage?.persist) return;
+    const alreadyPersistent = await navigator.storage.persisted();
+    if (!alreadyPersistent) {
+      await navigator.storage.persist();
+    }
+  } catch (err) {
+    // Ce n'est pas bloquant : IndexedDB reste utilisable en mode best-effort.
+    console.warn('Persistent storage request failed', err);
+  }
+}
+
+requestPersistentStorage();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

@@ -25,13 +25,18 @@ function toWorkingCanvas(img) {
 }
 
 /**
- * Cherche la plus grande région claire et peu saturée (typique d'une
- * feuille de papier) qui contraste avec l'arrière-plan, puis prend les
- * points extrêmes selon les deux diagonales de l'image (x+y et x-y) pour
- * approximer les 4 coins du document. Heuristique volontairement simple
- * (pas de détection de contours complète) : fiable pour un document assez
- * clair posé sur un fond qui contraste, ce qui couvre la majorité des cas
- * réels (papier sur table/bureau).
+ * Heuristique de détection des bords, volontairement simple (pas de
+ * détection de contours ni de composantes connexes) : on ne calcule PAS la
+ * plus grande région claire — chaque pixel plus clair que la luminance
+ * moyenne + un seuil est retenu individuellement, puis les points extrêmes
+ * de CET ENSEMBLE selon les deux diagonales de l'image (x+y et x-y)
+ * approximent les 4 coins du document. Fiable pour un document assez clair
+ * posé sur un fond qui contraste (le cas le plus courant : papier sur
+ * table/bureau), mais un point clair isolé et non connecté au document
+ * (reflet, lampe, zone claire du fond) peut tirer un coin vers l'extérieur
+ * puisque rien ne vérifie que les pixels retenus forment une seule région.
+ * Le recadrage manuel (coins ajustables) reste le filet de sécurité pour
+ * les cas où cette heuristique se trompe.
  *
  * Renvoie null si la détection n'est pas assez fiable — l'appelant doit
  * alors proposer un cadrage par défaut (image entière).

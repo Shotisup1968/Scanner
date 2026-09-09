@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scanner-cache-v9';
+const CACHE_NAME = 'scanner-cache-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -20,48 +20,70 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Le HTML passe en réseau d'abord (avec repli sur le cache hors-ligne) pour
-// ne jamais rester coincé sur une ancienne version de l'app. Le reste des
-// fichiers (JS/CSS/icônes/police jsPDF) est en cache d'abord : ils sont
-// versionnés par contenu via CACHE_NAME, donc stables tant que rien ne change.
+function cacheResponse(request, response) {
+  if (response && response.ok && response.type === 'basic') {
+    const clone = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+  }
+  return response;
+}
+
+function networkFirst(request, fallbackUrl = null) {
+  return fetch(request)
+    .then((response) => cacheResponse(request, response))
+    .catch(async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      if (fallbackUrl) return caches.match(fallbackUrl);
+      throw new Error('Offline resource unavailable');
+    });
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then((cached) => {
+    if (cached) return cached;
+    return fetch(request).then((response) => cacheResponse(request, response));
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
-    );
+    event.respondWith(networkFirst(event.request, './index.html'));
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response && response.ok && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => cached);
-    })
-  );
+  // Les fichiers applicatifs changent pendant le développement : réseau
+  // d'abord évite de rester bloqué sur une ancienne version même si le
+  // développeur oublie de modifier le nom du cache.
+  const isAppSource =
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('/manifest.json') ||
+    /\/js\/(app|db|pdf|imaging|perspective|ocr)\.js$/.test(url.pathname);
+
+  if (isAppSource) {
+    event.respondWith(networkFirst(event.request));
+  } else {
+    // Vendor, icônes et moteur OCR : cache d'abord, téléchargement à la demande.
+    event.respondWith(cacheFirst(event.request));
+  }
 });

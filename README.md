@@ -22,7 +22,7 @@ partage native d'iOS (Mail, Gmail, Outlook, AirDrop…).
 - Bibliothèque de documents avec recherche, renommer, supprimer, aperçu
 - Partage instantané via la feuille de partage iOS
 - Fonctionne hors-ligne une fois installée (service worker)
-- Zéro dépendance réseau au runtime (jsPDF et le moteur OCR sont embarqués dans `js/vendor/`)
+- Zéro dépendance à un service tiers au runtime (jsPDF et le moteur OCR sont embarqués dans `js/vendor/`)
 - Palette noir/gris sobre avec un seul accent (rouge), sans pub, sans compte, sans tracker
 
 ## Développement local
@@ -93,7 +93,8 @@ scripts/make-icons.ps1    génère les icônes dans icons/
 
 ## Confidentialité
 
-Aucun compte, aucun tracker, aucun appel réseau après le premier
-chargement (tout est mis en cache par le service worker). Les documents
-scannés ne quittent jamais le téléphone tant que tu ne les partages pas
-explicitement.
+Aucun compte, aucun tracker et aucune donnée de document envoyée à un
+serveur. Quand l'appareil est en ligne, le service worker peut vérifier
+auprès de l'hébergeur statique si les fichiers de l'application ont été
+mis à jour ; hors-ligne, il utilise son cache. Les documents scannés ne
+quittent jamais le téléphone tant que tu ne les partages pas explicitement.

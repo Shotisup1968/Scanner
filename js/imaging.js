@@ -29,21 +29,6 @@ export async function normalizeCapture(dataUrl) {
   return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
 }
 
-// crop: { x, y, w, h } en fractions 0..1 de l'image d'origine
-export async function cropDataUrl(dataUrl, crop) {
-  const img = await loadImage(dataUrl);
-  const sx = crop.x * img.naturalWidth;
-  const sy = crop.y * img.naturalHeight;
-  const sw = crop.w * img.naturalWidth;
-  const sh = crop.h * img.naturalHeight;
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(sw));
-  canvas.height = Math.max(1, Math.round(sh));
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
-}
-
 const FILTERS = {
   color: null,
   enhance: 'contrast(1.28) brightness(1.08) saturate(0.9)',
