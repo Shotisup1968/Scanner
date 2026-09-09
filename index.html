@@ -6,7 +6,7 @@
 <title>Scanner</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#11172a">
+<meta name="theme-color" content="#0a0a0b">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -40,6 +40,13 @@
     <p class="empty-sub">Scanne ton premier document — il reste uniquement sur ton téléphone.</p>
     <button id="btn-empty-scan" class="btn btn-primary">Nouveau scan</button>
   </div>
+
+  <div id="home-search" class="home-search hidden">
+    <svg viewBox="0 0 24 24" width="18" height="18" class="home-search-icon"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="20" y1="20" x2="16.2" y2="16.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <input id="home-search-input" type="text" placeholder="Rechercher un document">
+  </div>
+
+  <p id="home-noresults" class="home-noresults hidden">Aucun document ne correspond à cette recherche.</p>
 
   <ul id="doc-list" class="doc-list"></ul>
 
@@ -111,6 +118,10 @@
     <img id="crop-image" alt="">
     <div id="crop-overlay" class="crop-overlay"></div>
   </div>
+  <div class="crop-bottombar">
+    <p id="crop-hint" class="crop-hint">Ajuste les 4 coins sur les bords du document</p>
+    <button id="btn-crop-reset" class="btn btn-outline">Page entière</button>
+  </div>
 </section>
 
 <!-- ===================== DOCUMENT ===================== -->
@@ -131,6 +142,8 @@
   <div class="doc-actions">
     <button id="btn-doc-share" class="btn btn-primary btn-block">Partager / Envoyer par mail</button>
     <button id="btn-doc-open" class="btn btn-outline btn-block">Voir le PDF</button>
+    <button id="btn-doc-ocr" class="btn btn-outline btn-block hidden">Rendre le texte cherchable (OCR)</button>
+    <p id="doc-ocr-done" class="doc-ocr-done hidden">✓ Texte cherchable dans ce PDF</p>
     <button id="btn-doc-rename" class="btn btn-outline btn-block">Renommer</button>
     <button id="btn-doc-delete" class="btn btn-danger btn-block">Supprimer</button>
   </div>

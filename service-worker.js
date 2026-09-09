@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scanner-cache-v4';
+const CACHE_NAME = 'scanner-cache-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,8 @@ const ASSETS = [
   './js/db.js',
   './js/pdf.js',
   './js/imaging.js',
+  './js/perspective.js',
+  './js/ocr.js',
   './js/vendor/jspdf.umd.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

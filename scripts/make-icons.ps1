@@ -13,10 +13,10 @@ function New-ScannerIcon {
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 
-    $bgColor = [System.Drawing.Color]::FromArgb(255, 23, 32, 58)      # dark navy
-    $accent  = [System.Drawing.Color]::FromArgb(255, 45, 212, 191)    # teal
-    $white   = [System.Drawing.Color]::FromArgb(255, 246, 247, 250)
-    $lineGrey= [System.Drawing.Color]::FromArgb(255, 176, 184, 200)
+    $bgColor = [System.Drawing.Color]::FromArgb(255, 10, 10, 11)      # noir
+    $accent  = [System.Drawing.Color]::FromArgb(255, 168, 18, 31)     # rouge sobre (seul accent)
+    $white   = [System.Drawing.Color]::FromArgb(255, 242, 242, 240)
+    $lineGrey= [System.Drawing.Color]::FromArgb(255, 138, 138, 143)
 
     $g.Clear($bgColor)
 
@@ -27,7 +27,7 @@ function New-ScannerIcon {
     # Viewfinder corner brackets (skip for maskable to stay safely inside)
     if (-not $Maskable) {
         $bracketLen = $inner * 0.22
-        $bracketPen = New-Object System.Drawing.Pen($accent, [Math]::Max(2, $Size * 0.035))
+        $bracketPen = New-Object System.Drawing.Pen($white, [Math]::Max(2, $Size * 0.035))
         $bracketPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
         $bracketPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
         $m = $pad * 0.55
@@ -80,7 +80,7 @@ function New-ScannerIcon {
     $p2 = New-Object System.Drawing.PointF -ArgumentList @([single]$fx2, [single]$fy2)
     $p3 = New-Object System.Drawing.PointF -ArgumentList @([single]$fx3, [single]$fy3)
     $foldPts = [System.Drawing.PointF[]]@($p1, $p2, $p3)
-    $foldBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 214, 219, 230))
+    $foldBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 206, 206, 210))
     $g.FillPolygon($foldBrush, $foldPts)
 
     # text lines on the document

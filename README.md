@@ -14,14 +14,16 @@ partage native d'iOS (Mail, Gmail, Outlook, AirDrop…).
 ## Fonctionnalités
 
 - Capture multi-pages avec l'appareil photo
-- Recadrage manuel (glisser les coins)
+- **Détection automatique des bords + redressement de perspective** (comme un vrai scanner : le document peut être pris de travers, il est redressé) — coins ajustables manuellement si besoin
 - Filtres "scanner" (couleur / amélioré / noir & blanc)
-- Rotation des pages
+- Rotation et réorganisation des pages (avant de créer le PDF)
 - Génération d'un PDF (une page = une page du PDF, format A4)
-- Bibliothèque de documents (renommer, supprimer, aperçu)
+- **OCR à la demande** : rend le texte du PDF cherchable/copiable (reconnaissance de texte en français, moteur téléchargé une seule fois, ~4 Mo, puis mis en cache pour un usage hors-ligne)
+- Bibliothèque de documents avec recherche, renommer, supprimer, aperçu
 - Partage instantané via la feuille de partage iOS
 - Fonctionne hors-ligne une fois installée (service worker)
-- Zéro dépendance réseau au runtime (jsPDF est embarqué dans `js/vendor/`)
+- Zéro dépendance réseau au runtime (jsPDF et le moteur OCR sont embarqués dans `js/vendor/`)
+- Palette noir/gris sobre avec un seul accent (rouge), sans pub, sans compte, sans tracker
 
 ## Développement local
 
@@ -71,6 +73,23 @@ et gratuites :
 2. Appuie sur le bouton Partager (icône carrée avec flèche)
 3. « Sur l'écran d'accueil »
 4. L'icône Scanner apparaît comme une app normale, plein écran
+
+## Structure du projet
+
+```
+index.html              structure de l'appli (une section par écran)
+css/style.css            tous les styles
+js/app.js                logique principale, navigation entre écrans
+js/db.js                 stockage local des documents (IndexedDB)
+js/pdf.js                assemblage des pages en PDF (jsPDF)
+js/imaging.js             recadrage, filtres, vignettes (canvas)
+js/perspective.js         détection des bords + redressement de perspective
+js/ocr.js                 reconnaissance de texte (Tesseract.js, à la demande)
+js/vendor/                bibliothèques embarquées (aucune ne vient d'un CDN au runtime)
+manifest.json, service-worker.js   installabilité PWA + cache hors-ligne
+scripts/server.ps1        petit serveur local pour tester (voir plus haut)
+scripts/make-icons.ps1    génère les icônes dans icons/
+```
 
 ## Confidentialité
 
