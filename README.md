@@ -19,7 +19,9 @@ partage native d'iOS (Mail, Gmail, Outlook, AirDrop…).
 - Filtres "scanner" (couleur / amélioré / noir & blanc **adaptatif** — aplatit les ombres locales, ex. pli ou éclairage inégal, avant de binariser)
 - Rotation et réorganisation des pages (avant de créer le PDF)
 - Génération d'un PDF (une page = une page du PDF, format A4)
-- **OCR à la demande** : rend le texte du PDF cherchable/copiable (reconnaissance de texte en français, moteur téléchargé une seule fois, ~5 Mo, puis mis en cache pour un usage hors-ligne)
+- **OCR à la demande** : rend le texte du PDF cherchable/copiable (reconnaissance de texte en français, moteur téléchargé une seule fois, ~5 Mo, puis mis en cache pour un usage hors-ligne) — fiable sur texte imprimé/tapé, peu fiable sur écriture manuscrite (limite du moteur, pas de l'appli)
+- **Export Word (.doc)** du texte reconnu, une fois l'OCR fait — fichier HTML avec extension .doc (technique standard, sans dépendance), s'ouvre nativement dans Word/LibreOffice/Pages/Google Docs avec du vrai texte éditable
+- **Aperçu en grand** : tape une vignette (relecture, détail document) pour l'afficher en plein écran
 - Bibliothèque de documents avec recherche, renommer, supprimer, aperçu
 - Partage instantané via la feuille de partage iOS
 - Fonctionne hors-ligne une fois installée (service worker)
@@ -89,6 +91,7 @@ js/pdf.js                assemblage des pages en PDF (jsPDF)
 js/imaging.js             recadrage, filtres, vignettes (canvas)
 js/perspective.js         détection des bords + redressement de perspective
 js/ocr.js                 reconnaissance de texte (Tesseract.js, à la demande)
+js/docx.js                export du texte reconnu en document Word (.doc)
 js/vendor/                bibliothèques embarquées (aucune ne vient d'un CDN au runtime)
 manifest.json, service-worker.js   installabilité PWA + cache hors-ligne
 scripts/server.ps1        petit serveur local pour tester (voir plus haut)

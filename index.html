@@ -159,10 +159,18 @@
     <button id="btn-doc-open" class="btn btn-outline btn-block">Voir le PDF</button>
     <button id="btn-doc-ocr" class="btn btn-outline btn-block hidden">Rendre le texte cherchable (OCR)</button>
     <p id="doc-ocr-done" class="doc-ocr-done hidden">✓ Texte cherchable dans ce PDF</p>
+    <button id="btn-doc-word" class="btn btn-outline btn-block hidden">Exporter le texte en Word (.doc)</button>
     <button id="btn-doc-rename" class="btn btn-outline btn-block">Renommer</button>
     <button id="btn-doc-delete" class="btn btn-danger btn-block">Supprimer</button>
   </div>
 </section>
+
+<div id="image-viewer" class="image-viewer hidden">
+  <button id="btn-image-viewer-close" class="icon-btn" aria-label="Fermer">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+  <img id="image-viewer-img" alt="Aperçu en grand">
+</div>
 
 <div id="toast" class="toast hidden"></div>
 

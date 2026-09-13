@@ -3,6 +3,7 @@ import { buildPdf, pdfFileName } from './pdf.js';
 import { normalizeCapture, applyFilter, makeThumbnail } from './imaging.js';
 import { detectDocumentCorners, detectDocumentOutline, warpPerspective } from './perspective.js';
 import { recognizePage, isOcrEngineLoaded, OCR_ESTIMATED_SIZE_MB } from './ocr.js';
+import { buildWordDoc, wordFileName } from './docx.js';
 
 /* ---------------------------------------------------------------- */
 /* utilitaires                                                       */
@@ -99,6 +100,7 @@ const btnDocShare = document.getElementById('btn-doc-share');
 const btnDocOpen = document.getElementById('btn-doc-open');
 const btnDocOcr = document.getElementById('btn-doc-ocr');
 const docOcrDone = document.getElementById('doc-ocr-done');
+const btnDocWord = document.getElementById('btn-doc-word');
 const btnDocRename = document.getElementById('btn-doc-rename');
 const btnDocDelete = document.getElementById('btn-doc-delete');
 
@@ -106,6 +108,10 @@ const pdfViewer = document.getElementById('pdf-viewer');
 const pdfViewerFrame = document.getElementById('pdf-viewer-frame');
 const pdfViewerTitle = document.getElementById('pdf-viewer-title');
 const btnPdfViewerClose = document.getElementById('btn-pdf-viewer-close');
+
+const imageViewer = document.getElementById('image-viewer');
+const imageViewerImg = document.getElementById('image-viewer-img');
+const btnImageViewerClose = document.getElementById('btn-image-viewer-close');
 
 /* ---------------------------------------------------------------- */
 /* état                                                               */
@@ -524,6 +530,7 @@ function renderReviewList() {
 
     const img = document.createElement('img');
     img.src = page.dataUrl;
+    img.addEventListener('click', () => openImageViewer(page.dataUrl));
 
     const main = document.createElement('div');
     main.className = 'page-row-main';
@@ -880,6 +887,10 @@ async function openDocDetail(id) {
   currentDoc = doc;
   docTitle.textContent = doc.name;
   docThumb.src = doc.thumb;
+  docThumb.onclick = () => {
+    const fullRes = Array.isArray(doc.pageImages) && doc.pageImages[0];
+    openImageViewer(fullRes || doc.thumb);
+  };
   docMeta.textContent = `${doc.pageCount} page${doc.pageCount > 1 ? 's' : ''} · ${formatDate(doc.createdAt)}`;
   updateOcrUI(doc);
   showView('doc');
@@ -891,6 +902,12 @@ function updateOcrUI(doc) {
   docOcrDone.classList.toggle('hidden', !doc.ocrDone);
   btnDocOcr.disabled = false;
   btnDocOcr.textContent = 'Rendre le texte cherchable (OCR)';
+  // Le texte n'est disponible que si l'OCR a été fait APRÈS l'ajout de
+  // cette fonctionnalité (doc.ocrText) — un document déjà "cherchable"
+  // avant cette mise à jour n'a que la couche invisible du PDF, pas le
+  // texte brut à part ; il faut refaire l'OCR une fois pour l'obtenir.
+  const hasText = Array.isArray(doc.ocrText) && doc.ocrText.some((t) => t && t.trim());
+  btnDocWord.classList.toggle('hidden', !hasText);
 }
 
 btnDocBack.addEventListener('click', goHome);
@@ -931,6 +948,22 @@ function closePdfViewer() {
 }
 btnPdfViewerClose.addEventListener('click', closePdfViewer);
 
+// Visualiseur plein écran pour une vignette (relecture, détail document) —
+// les miniatures sont volontairement petites dans les listes, ceci permet
+// de vérifier la netteté/lisibilité d'une page avant de créer le PDF.
+function openImageViewer(src) {
+  imageViewerImg.src = src;
+  imageViewer.classList.remove('hidden');
+}
+function closeImageViewer() {
+  imageViewer.classList.add('hidden');
+  imageViewerImg.src = '';
+}
+btnImageViewerClose.addEventListener('click', closeImageViewer);
+imageViewer.addEventListener('click', (e) => {
+  if (e.target === imageViewer) closeImageViewer(); // tap sur le fond, pas sur l'image
+});
+
 btnDocOcr.addEventListener('click', async () => {
   const doc = await getDocument(currentDocId);
   if (!doc || !doc.pageImages || !doc.pageImages.length) return;
@@ -955,6 +988,10 @@ btnDocOcr.addEventListener('click', async () => {
 
     doc.pdfBlob = blob;
     doc.ocrDone = true;
+    // Texte brut par page, conservé à part du PDF (dont la couche de texte
+    // est invisible et non ré-extractible sans un lecteur PDF) — nécessaire
+    // pour l'export Word et une éventuelle recherche/copie ultérieure.
+    doc.ocrText = ocrPages.map((p) => p.ocr.text || '');
     await saveDocument(doc);
     currentDoc = doc;
     updateOcrUI(doc);
@@ -972,6 +1009,16 @@ btnDocOcr.addEventListener('click', async () => {
     btnDocOcr.disabled = false;
     btnDocOcr.textContent = 'Rendre le texte cherchable (OCR)';
   }
+});
+
+btnDocWord.addEventListener('click', () => {
+  if (!currentDoc || !Array.isArray(currentDoc.ocrText)) return;
+  const blob = buildWordDoc(
+    currentDoc.ocrText.map((text) => ({ text })),
+    currentDoc.name
+  );
+  downloadBlob(blob, wordFileName(currentDoc.name));
+  showToast('Document Word téléchargé');
 });
 
 btnDocRename.addEventListener('click', async () => {

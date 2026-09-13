@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scanner-cache-v14';
+const CACHE_NAME = 'scanner-cache-v15';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './js/imaging.js',
   './js/perspective.js',
   './js/ocr.js',
+  './js/docx.js',
   './js/vendor/jspdf.umd.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -78,7 +79,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('.css') ||
     url.pathname.endsWith('/manifest.json') ||
-    /\/js\/(app|db|pdf|imaging|perspective|ocr)\.js$/.test(url.pathname);
+    /\/js\/(app|db|pdf|imaging|perspective|ocr|docx)\.js$/.test(url.pathname);
 
   if (isAppSource) {
     event.respondWith(networkFirst(event.request));
