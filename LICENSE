@@ -1,0 +1,14 @@
+Copyright (c) 2026 Arnaud Genot
+
+Tous droits réservés.
+
+Ce dépôt est rendu public uniquement pour permettre son hébergement
+gratuit via GitHub Pages (l'hébergement de sites depuis un dépôt privé
+n'est pas disponible sur un compte GitHub gratuit). Rendre ce dépôt
+visible ne constitue l'octroi d'aucune licence : aucune permission n'est
+accordée d'utiliser, copier, modifier, fusionner, publier, distribuer,
+sous-licencier et/ou vendre des copies de ce logiciel, en tout ou partie,
+sans l'autorisation écrite préalable de l'auteur.
+
+Les bibliothèques tierces embarquées dans js/vendor/ restent soumises à
+leurs licences respectives — voir js/vendor/THIRD_PARTY_NOTICES.md.

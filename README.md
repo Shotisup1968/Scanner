@@ -18,7 +18,7 @@ partage native d'iOS (Mail, Gmail, Outlook, AirDrop…).
 - Filtres "scanner" (couleur / amélioré / noir & blanc)
 - Rotation et réorganisation des pages (avant de créer le PDF)
 - Génération d'un PDF (une page = une page du PDF, format A4)
-- **OCR à la demande** : rend le texte du PDF cherchable/copiable (reconnaissance de texte en français, moteur téléchargé une seule fois, ~4 Mo, puis mis en cache pour un usage hors-ligne)
+- **OCR à la demande** : rend le texte du PDF cherchable/copiable (reconnaissance de texte en français, moteur téléchargé une seule fois, ~5 Mo, puis mis en cache pour un usage hors-ligne)
 - Bibliothèque de documents avec recherche, renommer, supprimer, aperçu
 - Partage instantané via la feuille de partage iOS
 - Fonctionne hors-ligne une fois installée (service worker)
@@ -52,13 +52,16 @@ et gratuites :
 
 ### Option A — GitHub Pages (recommandé, tu restes propriétaire du code)
 
-1. Crée un dépôt sur https://github.com/new (public ou privé)
+1. Crée un dépôt sur https://github.com/new — **doit être public** : sur un
+   compte GitHub gratuit, Pages n'est pas disponible sur un dépôt privé
+   (nécessite un abonnement Pro/Team/Enterprise)
 2. Depuis ce dossier :
    ```bash
    git remote add origin https://github.com/<ton-compte>/<nom-repo>.git
-   git push -u origin main
+   git push -u origin master
    ```
-3. Dans les paramètres du dépôt GitHub → **Pages** → Source : `main` / `/ (root)`
+3. Dans les paramètres du dépôt GitHub → **Pages** → Source : `master` /
+   `/ (root)`
 4. L'appli est servie sur `https://<ton-compte>.github.io/<nom-repo>/`
 
 ### Option B — Netlify Drop (zéro configuration)
@@ -98,3 +101,13 @@ serveur. Quand l'appareil est en ligne, le service worker peut vérifier
 auprès de l'hébergeur statique si les fichiers de l'application ont été
 mis à jour ; hors-ligne, il utilise son cache. Les documents scannés ne
 quittent jamais le téléphone tant que tu ne les partages pas explicitement.
+
+## Licence
+
+Le dépôt est public pour permettre l'hébergement gratuit (GitHub Pages
+n'accepte pas les dépôts privés sur un compte gratuit), mais le code reste
+la propriété de son auteur — **tous droits réservés**. Aucune licence
+d'utilisation, de copie, de modification ou de redistribution n'est
+accordée. Voir `js/vendor/THIRD_PARTY_NOTICES.md` pour les licences des
+bibliothèques tierces embarquées (jsPDF, Tesseract.js), qui restent
+soumises à leurs licences respectives (MIT / Apache-2.0).
