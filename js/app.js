@@ -1,7 +1,7 @@
 import { saveDocument, getAllDocuments, getDocument, deleteDocument, renameDocument } from './db.js';
 import { buildPdf, pdfFileName } from './pdf.js';
 import { normalizeCapture, applyFilter, makeThumbnail } from './imaging.js';
-import { detectDocumentCorners, warpPerspective } from './perspective.js';
+import { detectDocumentCorners, detectCornersFromCanvas, warpPerspective } from './perspective.js';
 import { recognizePage, isOcrEngineLoaded, OCR_ESTIMATED_SIZE_MB } from './ocr.js';
 
 /* ---------------------------------------------------------------- */
@@ -70,6 +70,8 @@ const cameraVideo = document.getElementById('camera-video');
 const cameraCount = document.getElementById('camera-count');
 const cameraThumbs = document.getElementById('camera-thumbs');
 const cameraError = document.getElementById('camera-error');
+const cameraStage = document.querySelector('.camera-stage');
+const scanTrackGroup = document.getElementById('scan-track-group');
 const btnShutter = document.getElementById('btn-shutter');
 const btnCameraClose = document.getElementById('btn-camera-close');
 const btnCameraDone = document.getElementById('btn-camera-done');
@@ -223,6 +225,7 @@ async function startStream() {
     }
     await cameraVideo.play();
     btnShutter.disabled = false;
+    startScanTracking();
   } catch (err) {
     console.error('Camera error', err);
     stopStream();
@@ -231,12 +234,112 @@ async function startStream() {
 }
 
 function stopStream() {
+  stopScanTracking();
   if (mediaStream) {
     mediaStream.getTracks().forEach((t) => t.stop());
     mediaStream = null;
   }
   cameraVideo.srcObject = null;
   btnShutter.disabled = true;
+}
+
+/* ---------------------------------------------------------------- */
+/* contour du document en direct pendant la prise de vue              */
+/* ---------------------------------------------------------------- */
+// Réutilise l'heuristique de perspective.js sur des frames vidéo réduites,
+// à intervalle (pas à chaque frame — inutile et coûteux en batterie pour un
+// simple repère visuel), pour dessiner un contour qui suit le document
+// avant même la capture.
+
+const SCAN_TRACK_INTERVAL_MS = 350;
+const SCAN_WORK_MAX_DIM = 260; // petit et rapide : juste un repère visuel
+let scanTrackTimer = null;
+let scanWorkCanvas = null;
+let scanMissCount = 0;
+
+function startScanTracking() {
+  stopScanTracking();
+  scanWorkCanvas = document.createElement('canvas');
+  scanTrackTimer = setInterval(trackDocumentEdges, SCAN_TRACK_INTERVAL_MS);
+}
+
+function stopScanTracking() {
+  if (scanTrackTimer) { clearInterval(scanTrackTimer); scanTrackTimer = null; }
+  scanWorkCanvas = null;
+  scanMissCount = 0;
+  renderScanOverlay(null);
+}
+
+function trackDocumentEdges() {
+  const video = cameraVideo;
+  if (!mediaStream || !video.videoWidth || !video.videoHeight) return;
+
+  const scale = SCAN_WORK_MAX_DIM / Math.max(video.videoWidth, video.videoHeight);
+  const sw = Math.max(1, Math.round(video.videoWidth * scale));
+  const sh = Math.max(1, Math.round(video.videoHeight * scale));
+  scanWorkCanvas.width = sw;
+  scanWorkCanvas.height = sh;
+  scanWorkCanvas.getContext('2d').drawImage(video, 0, 0, sw, sh);
+
+  let corners = null;
+  try {
+    corners = detectCornersFromCanvas(scanWorkCanvas);
+  } catch (err) {
+    corners = null;
+  }
+
+  if (!corners) {
+    // Tolère un raté isolé (léger flou, mouvement) sans faire clignoter le
+    // contour — ne l'efface qu'après 2 échecs d'affilée.
+    scanMissCount++;
+    if (scanMissCount >= 2) renderScanOverlay(null);
+    return;
+  }
+  scanMissCount = 0;
+  renderScanOverlay(mapCanvasCornersToScreen(corners, sw, sh, video));
+}
+
+// La vidéo est affichée en `object-fit: cover` : elle est mise à l'échelle
+// uniformément pour remplir la zone, avec dépassement centré et rogné d'un
+// côté. Il faut donc reproduire ce calcul pour placer correctement le
+// contour (calculé sur les pixels natifs de la vidéo) par-dessus l'affichage.
+function mapCanvasCornersToScreen(corners, sw, sh, video) {
+  const box = cameraStage.getBoundingClientRect();
+  const videoAspect = video.videoWidth / video.videoHeight;
+  const boxAspect = box.width / box.height;
+  let scale, offsetX, offsetY;
+  if (videoAspect > boxAspect) {
+    scale = box.height / video.videoHeight;
+    offsetX = (box.width - video.videoWidth * scale) / 2;
+    offsetY = 0;
+  } else {
+    scale = box.width / video.videoWidth;
+    offsetX = 0;
+    offsetY = (box.height - video.videoHeight * scale) / 2;
+  }
+  const toNative = (p) => ({ x: p.x * (video.videoWidth / sw), y: p.y * (video.videoHeight / sh) });
+  const toScreen = (p) => {
+    const n = toNative(p);
+    return { x: offsetX + n.x * scale, y: offsetY + n.y * scale };
+  };
+  return { tl: toScreen(corners.tl), tr: toScreen(corners.tr), br: toScreen(corners.br), bl: toScreen(corners.bl) };
+}
+
+function renderScanOverlay(corners) {
+  if (!corners) {
+    scanTrackGroup.innerHTML = '';
+    return;
+  }
+  const { tl, tr, br, bl } = corners;
+  const pts = `${tl.x},${tl.y} ${tr.x},${tr.y} ${br.x},${br.y} ${bl.x},${bl.y}`;
+  const dots = [tl, tr, br, bl]
+    .map((p) => `<circle class="scan-corner-dot" cx="${p.x}" cy="${p.y}" r="3.5"></circle>`)
+    .join('');
+  scanTrackGroup.innerHTML = `
+    <polygon points="${pts}" class="scan-outline-glow"></polygon>
+    <polygon points="${pts}" class="scan-outline"></polygon>
+    ${dots}
+  `;
 }
 
 function renderCameraThumbs() {

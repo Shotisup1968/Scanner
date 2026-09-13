@@ -38,12 +38,13 @@ function toWorkingCanvas(img) {
  * Le recadrage manuel (coins ajustables) reste le filet de sécurité pour
  * les cas où cette heuristique se trompe.
  *
- * Renvoie null si la détection n'est pas assez fiable — l'appelant doit
- * alors proposer un cadrage par défaut (image entière).
+ * Cœur partagé entre detectDocumentCorners() (sur une image déjà capturée,
+ * via dataURL) et detectCornersFromCanvas() (sur une frame vidéo en direct,
+ * pour le contour affiché pendant la prise de vue) : travaille directement
+ * sur un canvas déjà dessiné, renvoie les coins dans l'espace pixel de CE
+ * canvas, ou null si rien d'assez fiable n'est détecté.
  */
-export async function detectDocumentCorners(dataUrl) {
-  const img = await loadImage(dataUrl);
-  const { ctx, w, h } = toWorkingCanvas(img);
+function analyzeCorners(ctx, w, h) {
   const { data } = ctx.getImageData(0, 0, w, h);
 
   const lum = new Float32Array(w * h);
@@ -77,16 +78,45 @@ export async function detectDocumentCorners(dataUrl) {
     return null;
   }
 
+  return {
+    tl: { x: pMinSum[0], y: pMinSum[1] },
+    tr: { x: pMaxDiff[0], y: pMaxDiff[1] },
+    br: { x: pMaxSum[0], y: pMaxSum[1] },
+    bl: { x: pMinDiff[0], y: pMinDiff[1] },
+  };
+}
+
+/**
+ * Renvoie null si la détection n'est pas assez fiable — l'appelant doit
+ * alors proposer un cadrage par défaut (image entière).
+ */
+export async function detectDocumentCorners(dataUrl) {
+  const img = await loadImage(dataUrl);
+  const { ctx, w, h } = toWorkingCanvas(img);
+  const corners = analyzeCorners(ctx, w, h);
+  if (!corners) return null;
+
   const scaleX = img.naturalWidth / w;
   const scaleY = img.naturalHeight / h;
-  const toFull = ([x, y]) => ({ x: x * scaleX, y: y * scaleY });
+  const toFull = (p) => ({ x: p.x * scaleX, y: p.y * scaleY });
 
   return {
-    tl: toFull(pMinSum),
-    tr: toFull(pMaxDiff),
-    br: toFull(pMaxSum),
-    bl: toFull(pMinDiff),
+    tl: toFull(corners.tl),
+    tr: toFull(corners.tr),
+    br: toFull(corners.br),
+    bl: toFull(corners.bl),
   };
+}
+
+// Variante "temps réel" pour le contour affiché pendant la prévisualisation
+// caméra : prend un canvas DÉJÀ rempli (une frame vidéo réduite, dessinée
+// par l'appelant) plutôt qu'une dataURL — encoder/décoder une dataURL à
+// chaque frame serait inutilement coûteux pour un suivi répété plusieurs
+// fois par seconde. Coins renvoyés dans l'espace pixel de ce canvas ; à
+// l'appelant de les remettre à l'échelle de l'écran.
+export function detectCornersFromCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  return analyzeCorners(ctx, canvas.width, canvas.height);
 }
 
 // Mapping carré unité → quadrilatère quelconque (méthode de Heckbert).

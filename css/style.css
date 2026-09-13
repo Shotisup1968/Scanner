@@ -7,12 +7,20 @@
   --text-muted: #8a8a8f;
   --mono: #f2f2f0;     /* accent "monochrome" — blanc cassé, pour les actions principales */
   --mono-ink: #0a0a0b; /* texte/icônes posés sur --mono */
-  --accent: #a8121f;   /* seul point de couleur toléré — rouge sobre, façon Hitman, réservé aux états actifs/critiques */
+  --accent: #a8121f;   /* seul point de couleur toléré — rouge sobre, façon Hitman/T-800, réservé aux états actifs/critiques */
   --accent-ink: #f2f2f0;
   --danger: #c23b3b;
   --radius: 16px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Police "lecture technique" (compteurs, métadonnées, messages système) —
+     police mono SYSTÈME uniquement (aucun fichier téléchargé, pas de CDN de
+     police) pour rester cohérent avec le zéro-dépendance tiers du projet ;
+     SF Mono sur iOS/Safari donne déjà un vrai rendu "terminal/HUD". */
+  --font-hud: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --chrome-1: #eef2f5;
+  --chrome-2: #9aa4b2;
+  --chrome-3: #6b7280;
 }
 
 * { box-sizing: border-box; }
@@ -37,6 +45,24 @@ p { margin: 0; }
 
 .hidden { display: none !important; }
 
+/* Texture "viseur HUD" très subtile, façon vision T-800 — sous le
+   visualiseur PDF et le toast (z-index plus haut) pour ne jamais gêner la
+   lecture d'un document ou d'un message important. */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.035) 0px,
+    rgba(255,255,255,0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
 .view {
   position: absolute;
   inset: 0;
@@ -54,7 +80,7 @@ p { margin: 0; }
   padding: calc(var(--safe-top) + 14px) 12px 14px;
   flex-shrink: 0;
 }
-.topbar h1 { flex: 1; text-align: center; }
+.topbar h1 { flex: 1; text-align: center; font-family: var(--font-hud); letter-spacing: 0.02em; }
 .spacer { width: 40px; }
 
 .brand { display: flex; align-items: center; gap: 10px; padding-left: 4px; }
@@ -62,8 +88,14 @@ p { margin: 0; }
   width: 12px; height: 12px; border-radius: 4px;
   background: var(--accent);
   box-shadow: 0 0 0 3px rgba(168,18,31,0.18);
+  animation: pulse-glow 2.4s ease-in-out infinite;
 }
-.brand h1 { font-size: 22px; }
+.brand h1 { font-size: 22px; font-family: var(--font-hud); letter-spacing: 0.02em; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(168,18,31,0.18); }
+  50% { box-shadow: 0 0 0 5px rgba(168,18,31,0.32); }
+}
 
 .icon-btn, .link-btn {
   background: none;
@@ -126,7 +158,7 @@ p { margin: 0; }
 }
 .doc-card-info { flex: 1; min-width: 0; }
 .doc-card-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.doc-card-sub { color: var(--text-muted); font-size: 13px; margin-top: 3px; }
+.doc-card-sub { color: var(--text-muted); font-family: var(--font-hud); font-size: 12px; margin-top: 3px; }
 .doc-card-chevron { color: var(--text-muted); flex-shrink: 0; }
 
 .home-search {
@@ -196,12 +228,58 @@ p { margin: 0; }
   width: 100%; height: 100%;
   object-fit: cover;
 }
-.camera-guide {
+/* Viseur HUD façon T-800 : 4 coins d'angle plutôt qu'un cadre plein, avec
+   une lueur rouge discrète — reste visible mais laisse voir le document. */
+.camera-reticle {
   position: absolute;
   inset: 14% 7%;
-  border: 2px dashed rgba(255,255,255,0.45);
-  border-radius: 18px;
   pointer-events: none;
+  z-index: 1;
+}
+.camera-reticle span {
+  position: absolute;
+  width: 22px; height: 22px;
+  border-color: var(--accent);
+  opacity: 0.8;
+  filter: drop-shadow(0 0 3px rgba(168,18,31,0.6));
+}
+.camera-reticle span:nth-child(1) { top: 0; left: 0; border-top: 2.5px solid; border-left: 2.5px solid; border-radius: 6px 0 0 0; }
+.camera-reticle span:nth-child(2) { top: 0; right: 0; border-top: 2.5px solid; border-right: 2.5px solid; border-radius: 0 6px 0 0; }
+.camera-reticle span:nth-child(3) { bottom: 0; left: 0; border-bottom: 2.5px solid; border-left: 2.5px solid; border-radius: 0 0 0 6px; }
+.camera-reticle span:nth-child(4) { bottom: 0; right: 0; border-bottom: 2.5px solid; border-right: 2.5px solid; border-radius: 0 0 6px 0; }
+
+/* Contour du document détecté en direct sur le flux caméra, façon "métal
+   liquide" T-1000 : dégradé chrome + lueur rouge, mis à jour plusieurs fois
+   par seconde par js/app.js (voir trackDocumentEdges). */
+.scan-overlay-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+.scan-outline-glow {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 7;
+  opacity: 0.4;
+  filter: blur(4px);
+}
+.scan-outline {
+  fill: none;
+  stroke: url(#chromeGradient);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.scan-corner-dot {
+  fill: var(--chrome-1);
+  filter: drop-shadow(0 0 3px rgba(168,18,31,0.8));
+  animation: scan-corner-pulse 1.4s ease-in-out infinite;
+}
+@keyframes scan-corner-pulse {
+  0%, 100% { opacity: 0.6; r: 3; }
+  50% { opacity: 1; r: 4.5; }
 }
 .camera-topbar {
   position: absolute; top: 0; left: 0; right: 0;
@@ -214,8 +292,10 @@ p { margin: 0; }
 .camera-count {
   background: rgba(0,0,0,0.4);
   color: #fff;
+  font-family: var(--font-hud);
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.02em;
   padding: 6px 12px;
   border-radius: 999px;
 }
@@ -374,12 +454,12 @@ p { margin: 0; }
   content: "";
   position: absolute;
   inset: 9px;
-  background: var(--mono);
+  background: linear-gradient(135deg, var(--chrome-1), var(--chrome-2) 50%, var(--chrome-3));
   border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 0 6px rgba(168,18,31,0.5);
 }
 .crop-quad-mask { fill: rgba(0,0,0,0.6); }
-.crop-quad-outline { fill: none; stroke: var(--mono); stroke-width: 2; }
+.crop-quad-outline { fill: none; stroke: url(#chromeGradient); stroke-width: 2.5; }
 
 .crop-bottombar {
   flex-shrink: 0;
@@ -389,7 +469,7 @@ p { margin: 0; }
   gap: 10px;
   padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
 }
-.crop-hint { color: var(--text-muted); font-size: 13px; text-align: center; }
+.crop-hint { color: var(--text-muted); font-family: var(--font-hud); font-size: 13px; text-align: center; }
 
 /* ---------- document detail ---------- */
 .doc-preview {
@@ -409,7 +489,7 @@ p { margin: 0; }
   box-shadow: 0 12px 30px rgba(0,0,0,0.45);
   background: #fff;
 }
-.doc-meta { color: var(--text-muted); font-size: 13px; }
+.doc-meta { color: var(--text-muted); font-family: var(--font-hud); font-size: 13px; }
 .doc-ocr-done { color: var(--text-muted); font-size: 13px; text-align: center; padding: 4px 0; }
 .doc-actions {
   flex-shrink: 0;
@@ -457,7 +537,8 @@ p { margin: 0; }
   transform: translateX(-50%);
   background: #fff;
   color: #101418;
-  font-size: 14px;
+  font-family: var(--font-hud);
+  font-size: 13.5px;
   font-weight: 600;
   padding: 12px 18px;
   border-radius: 12px;

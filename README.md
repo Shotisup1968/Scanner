@@ -14,8 +14,9 @@ partage native d'iOS (Mail, Gmail, Outlook, AirDrop…).
 ## Fonctionnalités
 
 - Capture multi-pages avec l'appareil photo
+- **Contour du document affiché en direct** pendant la prise de vue (suivi live, avant même d'appuyer sur le déclencheur)
 - **Détection automatique des bords + redressement de perspective** (comme un vrai scanner : le document peut être pris de travers, il est redressé) — coins ajustables manuellement si besoin
-- Filtres "scanner" (couleur / amélioré / noir & blanc)
+- Filtres "scanner" (couleur / amélioré / noir & blanc **adaptatif** — aplatit les ombres locales, ex. pli ou éclairage inégal, avant de binariser)
 - Rotation et réorganisation des pages (avant de créer le PDF)
 - Génération d'un PDF (une page = une page du PDF, format A4)
 - **OCR à la demande** : rend le texte du PDF cherchable/copiable (reconnaissance de texte en français, moteur téléchargé une seule fois, ~5 Mo, puis mis en cache pour un usage hors-ligne)
