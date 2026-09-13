@@ -35,18 +35,23 @@ const FILTERS = {
 };
 
 // Aplatit les variations d'éclairage locales (ombre le long d'un pli, coin
-// plus sombre qu'un autre, etc.) avant de basculer en noir & blanc. Un
-// simple contraste global (ce que faisait l'ancienne version) assombrit ou
-// sature les zones d'ombre au lieu de les corriger, puisqu'il applique le
-// même seuil à toute l'image.
+// plus sombre qu'un autre, etc.) avant de basculer en noir & blanc, ET pousse
+// le résultat vers un vrai rendu "scanner" (fond blanc, encre noire) plutôt
+// qu'un simple contraste global qui assombrit ou sature les zones d'ombre.
 //
-// Principe : on estime la "luminosité de fond" localement — une version
-// très floutée de l'image, obtenue en la réduisant puis en la ré-agrandissant
-// (l'interpolation bilinéaire du canvas fait ici office de flou large et
-// bon marché, sans boucle de convolution à écrire à la main) — puis chaque
-// pixel est renormalisé par rapport à CE fond local plutôt que par rapport
-// à un seuil unique pour toute la page. Un texte dans l'ombre d'un pli
-// ressort donc aussi net qu'un texte en pleine lumière.
+// Principe : on estime la "luminosité de fond" localement — une version très
+// floutée de l'image, obtenue en la réduisant puis en la ré-agrandissant
+// (l'interpolation bilinéaire du canvas fait office de flou large et bon
+// marché) — puis, pour chaque pixel, on ne regarde QUE s'il est plus SOMBRE
+// que ce fond local : c'est le signe de l'encre (ou d'un pli net), pas d'une
+// simple variation lente d'éclairage. Un pixel aussi clair (ou plus clair)
+// que son fond local devient blanc ; un pixel nettement plus sombre devient
+// noir, avec un gain élevé pour que même une encre pâle bascule franchement.
+//
+// (Une première version renormalisait symétriquement autour du gris moyen —
+// gray - blurred + 128 — ce qui poussait le FOND lui-même vers le gris à
+// chaque endroit où il correspondait à son estimation locale, donnant un
+// résultat globalement terne au lieu d'un fond blanc. Corrigé ici.)
 function localAdaptiveBW(canvas, ctx) {
   const w = canvas.width, h = canvas.height;
   const src = ctx.getImageData(0, 0, w, h).data;
@@ -80,11 +85,11 @@ function localAdaptiveBW(canvas, ctx) {
   blurCtx.drawImage(smallCanvas, 0, 0, w, h);
   const blurred = blurCtx.getImageData(0, 0, w, h).data;
 
-  const CONTRAST = 2.4;
+  const GAIN = 6; // agressif : un léger écart avec le fond local suffit à basculer vers le noir
   const out = ctx.createImageData(w, h);
   for (let p = 0, i = 0; p < gray.length; p++, i += 4) {
-    const normalized = gray[p] - blurred[i] + 128;
-    const v = Math.min(255, Math.max(0, (normalized - 128) * CONTRAST + 128));
+    const darkerThanBg = blurred[i] - gray[p]; // >0 = plus sombre que son fond local (encre)
+    const v = Math.min(255, Math.max(0, 255 - darkerThanBg * GAIN));
     out.data[i] = v; out.data[i + 1] = v; out.data[i + 2] = v; out.data[i + 3] = 255;
   }
   ctx.putImageData(out, 0, 0);
