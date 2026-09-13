@@ -1,7 +1,7 @@
 import { saveDocument, getAllDocuments, getDocument, deleteDocument, renameDocument } from './db.js';
 import { buildPdf, pdfFileName } from './pdf.js';
 import { normalizeCapture, applyFilter, makeThumbnail } from './imaging.js';
-import { detectDocumentCorners, detectCornersFromCanvas, warpPerspective } from './perspective.js';
+import { detectDocumentCorners, detectDocumentOutline, warpPerspective } from './perspective.js';
 import { recognizePage, isOcrEngineLoaded, OCR_ESTIMATED_SIZE_MB } from './ocr.js';
 
 /* ---------------------------------------------------------------- */
@@ -244,18 +244,37 @@ function stopStream() {
 }
 
 /* ---------------------------------------------------------------- */
-/* contour du document en direct pendant la prise de vue              */
+/* contour du document en direct + capture automatique                */
 /* ---------------------------------------------------------------- */
 // Réutilise l'heuristique de perspective.js sur des frames vidéo réduites,
 // à intervalle (pas à chaque frame — inutile et coûteux en batterie pour un
-// simple repère visuel), pour dessiner un contour qui suit le document
-// avant même la capture.
+// simple repère visuel), pour :
+//  1) dessiner le contour COMPLET du document détecté (pas juste 4 coins) ;
+//  2) déclencher automatiquement la capture quand ce contour reste stable
+//     un court instant, puis mettre à plat (perspective) et basculer en
+//     noir & blanc sans action de l'utilisateur.
+// Le déclencheur manuel reste disponible en toutes circonstances (filet de
+// sécurité si la détection ne s'accroche pas — fond peu contrasté, lumière
+// difficile, etc.).
 
 const SCAN_TRACK_INTERVAL_MS = 350;
-const SCAN_WORK_MAX_DIM = 260; // petit et rapide : juste un repère visuel
+const SCAN_WORK_MAX_DIM = 260; // petit et rapide : suivi + décision de capture
+const SCAN_STABLE_TICKS = 3; // ~1s à 350ms/tick avant de considérer que c'est stable
+const SCAN_STABLE_TOLERANCE = 0.02; // fraction de la diagonale vidéo tolérée entre 2 mesures
+// Le réarmement "normal" est immédiat, dès qu'un tick ne détecte plus de
+// document (page retirée du cadre, cf. trackDocumentEdges). Ce délai n'est
+// qu'un filet de sécurité pour le cas où la scène resterait parfaitement
+// figée sans qu'aucun tick ne rapporte jamais "rien détecté" (téléphone sur
+// trépied, page immobile) — volontairement long pour ne jamais déclencher
+// de rafale de captures identiques dans ce cas.
+const SCAN_POST_CAPTURE_SAFETY_MS = 4000;
+
 let scanTrackTimer = null;
 let scanWorkCanvas = null;
 let scanMissCount = 0;
+let scanStableHistory = []; // derniers quads (espace pixel NATIF vidéo), pour juger de la stabilité
+let scanAwaitingRemoval = false; // évite de recapturer en boucle une page tenue immobile
+let scanAutoCaptureBusy = false;
 
 function startScanTracking() {
   stopScanTracking();
@@ -267,12 +286,15 @@ function stopScanTracking() {
   if (scanTrackTimer) { clearInterval(scanTrackTimer); scanTrackTimer = null; }
   scanWorkCanvas = null;
   scanMissCount = 0;
+  scanStableHistory = [];
+  scanAwaitingRemoval = false;
+  scanAutoCaptureBusy = false;
   renderScanOverlay(null);
 }
 
 function trackDocumentEdges() {
   const video = cameraVideo;
-  if (!mediaStream || !video.videoWidth || !video.videoHeight) return;
+  if (!mediaStream || !video.videoWidth || !video.videoHeight || scanAutoCaptureBusy) return;
 
   const scale = SCAN_WORK_MAX_DIM / Math.max(video.videoWidth, video.videoHeight);
   const sw = Math.max(1, Math.round(video.videoWidth * scale));
@@ -281,29 +303,66 @@ function trackDocumentEdges() {
   scanWorkCanvas.height = sh;
   scanWorkCanvas.getContext('2d').drawImage(video, 0, 0, sw, sh);
 
-  let corners = null;
+  let result = null;
   try {
-    corners = detectCornersFromCanvas(scanWorkCanvas);
+    result = detectDocumentOutline(scanWorkCanvas);
   } catch (err) {
-    corners = null;
+    result = null;
   }
 
-  if (!corners) {
+  if (!result) {
     // Tolère un raté isolé (léger flou, mouvement) sans faire clignoter le
     // contour — ne l'efface qu'après 2 échecs d'affilée.
     scanMissCount++;
+    scanStableHistory = [];
+    scanAwaitingRemoval = false; // le document a disparu du cadre : on peut réarmer la capture auto
     if (scanMissCount >= 2) renderScanOverlay(null);
     return;
   }
   scanMissCount = 0;
-  renderScanOverlay(mapCanvasCornersToScreen(corners, sw, sh, video));
+
+  const toNativeScale = { x: video.videoWidth / sw, y: video.videoHeight / sh };
+  renderScanOverlay(mapPointsToScreen(result.hull, toNativeScale, video));
+
+  if (scanAwaitingRemoval) return; // page précédente pas encore retirée/déplacée
+
+  const nativeQuad = scaleQuad(result.quad, toNativeScale);
+  scanStableHistory.push(nativeQuad);
+  if (scanStableHistory.length > SCAN_STABLE_TICKS) scanStableHistory.shift();
+
+  if (scanStableHistory.length === SCAN_STABLE_TICKS) {
+    const diag = Math.hypot(video.videoWidth, video.videoHeight);
+    const isStable = scanStableHistory.every((q, i) => {
+      if (i === 0) return true;
+      return quadMovement(scanStableHistory[i - 1], q) / diag <= SCAN_STABLE_TOLERANCE;
+    });
+    if (isStable) {
+      scanAwaitingRemoval = true;
+      scanStableHistory = [];
+      autoCapturePage(nativeQuad);
+    }
+  }
+}
+
+function scaleQuad(quad, s) {
+  const scaleP = (p) => ({ x: p.x * s.x, y: p.y * s.y });
+  return { tl: scaleP(quad.tl), tr: scaleP(quad.tr), br: scaleP(quad.br), bl: scaleP(quad.bl) };
+}
+
+function quadMovement(a, b) {
+  let maxD = 0;
+  for (const k of ['tl', 'tr', 'br', 'bl']) {
+    const d = Math.hypot(a[k].x - b[k].x, a[k].y - b[k].y);
+    if (d > maxD) maxD = d;
+  }
+  return maxD;
 }
 
 // La vidéo est affichée en `object-fit: cover` : elle est mise à l'échelle
 // uniformément pour remplir la zone, avec dépassement centré et rogné d'un
 // côté. Il faut donc reproduire ce calcul pour placer correctement le
 // contour (calculé sur les pixels natifs de la vidéo) par-dessus l'affichage.
-function mapCanvasCornersToScreen(corners, sw, sh, video) {
+function mapPointsToScreen(points, toNativeScale, video) {
   const box = cameraStage.getBoundingClientRect();
   const videoAspect = video.videoWidth / video.videoHeight;
   const boxAspect = box.width / box.height;
@@ -317,29 +376,66 @@ function mapCanvasCornersToScreen(corners, sw, sh, video) {
     offsetX = 0;
     offsetY = (box.height - video.videoHeight * scale) / 2;
   }
-  const toNative = (p) => ({ x: p.x * (video.videoWidth / sw), y: p.y * (video.videoHeight / sh) });
-  const toScreen = (p) => {
-    const n = toNative(p);
-    return { x: offsetX + n.x * scale, y: offsetY + n.y * scale };
-  };
-  return { tl: toScreen(corners.tl), tr: toScreen(corners.tr), br: toScreen(corners.br), bl: toScreen(corners.bl) };
+  return points.map((p) => ({
+    x: offsetX + p.x * toNativeScale.x * scale,
+    y: offsetY + p.y * toNativeScale.y * scale,
+  }));
 }
 
-function renderScanOverlay(corners) {
-  if (!corners) {
+function renderScanOverlay(screenPoints) {
+  if (!screenPoints || screenPoints.length < 3) {
     scanTrackGroup.innerHTML = '';
     return;
   }
-  const { tl, tr, br, bl } = corners;
-  const pts = `${tl.x},${tl.y} ${tr.x},${tr.y} ${br.x},${br.y} ${bl.x},${bl.y}`;
-  const dots = [tl, tr, br, bl]
-    .map((p) => `<circle class="scan-corner-dot" cx="${p.x}" cy="${p.y}" r="3.5"></circle>`)
-    .join('');
+  const pts = screenPoints.map((p) => `${p.x},${p.y}`).join(' ');
   scanTrackGroup.innerHTML = `
     <polygon points="${pts}" class="scan-outline-glow"></polygon>
     <polygon points="${pts}" class="scan-outline"></polygon>
-    ${dots}
   `;
+}
+
+// Capture, met à plat (perspective) et bascule en noir & blanc automatiquement
+// dès que le contour détecté est resté stable ~1s. Le quad fourni est en
+// coordonnées pixel NATIVES de la vidéo au moment du dernier tick stable ;
+// comme normalizeCapture() peut redimensionner l'image (MAX_DIMENSION), les
+// coins sont remis à l'échelle de l'image réellement obtenue avant le warp.
+async function autoCapturePage(nativeQuad) {
+  if (!mediaStream) { scanAutoCaptureBusy = false; scanAwaitingRemoval = false; return; }
+  scanAutoCaptureBusy = true;
+  try {
+    const video = cameraVideo;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const raw = canvas.toDataURL('image/jpeg', 0.92);
+    const normalized = await normalizeCapture(raw);
+
+    const naturalSize = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = reject;
+      img.src = normalized;
+    });
+    const rescale = { x: naturalSize.w / video.videoWidth, y: naturalSize.h / video.videoHeight };
+    const scaledQuad = scaleQuad(nativeQuad, rescale);
+
+    const flattened = await warpPerspective(normalized, scaledQuad);
+    const bw = await applyFilter(flattened, 'bw');
+
+    session.pages.push({ uid: uid(), source: flattened, filter: 'bw', dataUrl: bw });
+    renderCameraThumbs();
+    showToast('Page capturée et mise à plat automatiquement');
+  } catch (err) {
+    console.error('Capture automatique impossible', err);
+    showToast('Capture automatique impossible — utilise le déclencheur');
+  } finally {
+    scanAutoCaptureBusy = false;
+    // Court délai avant de pouvoir ré-armer la capture auto, le temps que
+    // l'utilisateur retire la page de devant l'objectif (en plus du
+    // réarmement immédiat dès qu'un tick ne détecte plus rien, ci-dessus).
+    setTimeout(() => { scanAwaitingRemoval = false; }, SCAN_POST_CAPTURE_SAFETY_MS);
+  }
 }
 
 function renderCameraThumbs() {
@@ -363,6 +459,12 @@ async function capturePhoto() {
     showToast('La caméra n’est pas encore prête');
     return;
   }
+  // Évite qu'une capture automatique ne se déclenche juste avant/après ce
+  // tap manuel sur le même instant (double page capturée par erreur).
+  scanStableHistory = [];
+  scanAwaitingRemoval = true;
+  setTimeout(() => { scanAwaitingRemoval = false; }, SCAN_POST_CAPTURE_SAFETY_MS);
+
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
