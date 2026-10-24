@@ -158,6 +158,30 @@
   </form>
 </dialog>
 
+<dialog id="dlg-confirm">
+  <form method="dialog">
+    <p id="confirm-message" class="confirm-message"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="text-btn">Annuler</button>
+      <button value="ok" class="primary-btn accent" id="confirm-ok">Supprimer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-export">
+  <form method="dialog">
+    <h2>Export CSV</h2>
+    <p class="muted small" id="export-name"></p>
+    <textarea id="export-csv" readonly rows="8" spellcheck="false"></textarea>
+    <div class="dlg-actions">
+      <button value="close" class="text-btn">Fermer</button>
+      <span class="spacer"></span>
+      <button type="button" class="text-btn accent" id="export-download">Télécharger</button>
+      <button type="button" class="primary-btn" id="export-copy">Copier</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="app.js"></script>

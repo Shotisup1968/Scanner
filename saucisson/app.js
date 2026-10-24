@@ -92,6 +92,19 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+// Confirmation dans la page plutôt que confirm() : même rendu partout, et
+// confirm() est désactivé dans certains contextes (aperçus intégrés).
+function ask(message, okLabel = 'Supprimer') {
+  return new Promise((resolve) => {
+    const dlg = $('dlg-confirm');
+    $('confirm-message').textContent = message;
+    $('confirm-ok').textContent = okLabel;
+    dlg.returnValue = '';
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+    dlg.showModal();
+  });
+}
+
 let toastTimer = null;
 function toast(msg) {
   const t = $('toast');
@@ -323,9 +336,9 @@ function stepPieces(delta) {
 $('btn-pieces-minus').addEventListener('click', () => stepPieces(-1));
 $('btn-pieces-plus').addEventListener('click', () => stepPieces(1));
 
-function deleteLine(id) {
+async function deleteLine(id) {
   const l = state.draft.lines.find((x) => x.id === id);
-  if (!l || !confirm(`Supprimer la ligne « ${l.product} » ?`)) return;
+  if (!l || !(await ask(`Supprimer la ligne « ${l.product} » ?`))) return;
   state.draft.lines = state.draft.lines.filter((x) => x.id !== id);
   if (editingLineId === id) resetForm();
   saveState();
@@ -341,9 +354,9 @@ function deleteLine(id) {
   });
 });
 
-$('btn-clear-draft').addEventListener('click', () => {
+$('btn-clear-draft').addEventListener('click', async () => {
   if (!state.draft.lines.length && !state.draft.supplier && !state.draft.bl) return;
-  if (!confirm('Effacer toute la réception en cours ?')) return;
+  if (!(await ask('Effacer toute la réception en cours ?', 'Effacer'))) return;
   state.draft = emptyDraft();
   saveState();
   resetForm();
@@ -389,11 +402,11 @@ $('btn-validate').addEventListener('click', () => {
   exportReceptions([reception]);
 });
 
-function deleteReception(id) {
+async function deleteReception(id) {
   const r = state.receptions.find((x) => x.id === id);
   if (!r) return;
   const warn = r.exportedAt ? '' : '\nAttention : elle n\'a pas encore été exportée.';
-  if (!confirm(`Supprimer la réception du ${formatDate(r.date)} ?${warn}`)) return;
+  if (!(await ask(`Supprimer la réception du ${formatDate(r.date)} ?${warn}`))) return;
   state.receptions = state.receptions.filter((x) => x.id !== id);
   saveState();
   renderHistory();
@@ -432,34 +445,7 @@ function csvFileName(receptions) {
   return `receptions_${today()}_${receptions.length}.csv`;
 }
 
-async function exportReceptions(receptions) {
-  if (!receptions.length) return;
-  const name = csvFileName(receptions);
-  const file = new File([buildCsv(receptions)], name, { type: 'text/csv' });
-
-  let done = false;
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: name });
-      done = true;
-    } catch (err) {
-      if (err && err.name === 'AbortError') {
-        toast('Export annulé — la réception reste « à exporter » dans l\'historique.');
-        return;
-      }
-      // Partage refusé (ex. plus de geste utilisateur actif) : on télécharge.
-    }
-  }
-  if (!done) {
-    const url = URL.createObjectURL(file);
-    const a = el('a', { href: url, download: name });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-    done = true;
-  }
-
+function markExported(receptions) {
   const now = Date.now();
   receptions.forEach((r) => {
     const stored = state.receptions.find((x) => x.id === r.id);
@@ -467,8 +453,68 @@ async function exportReceptions(receptions) {
   });
   saveState();
   renderHistory();
-  toast(`${name} exporté`);
 }
+
+async function exportReceptions(receptions) {
+  if (!receptions.length) return;
+  const name = csvFileName(receptions);
+  const csv = buildCsv(receptions);
+  const file = new File([csv], name, { type: 'text/csv' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: name });
+      markExported(receptions);
+      toast(`${name} exporté`);
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        toast('Export annulé. La réception reste « à exporter » dans l\'historique.');
+        return;
+      }
+      // Partage indisponible : on passe à la fenêtre d'export.
+    }
+  }
+  openExportDialog(receptions, name, csv, file);
+}
+
+// Repli sans feuille de partage : le CSV s'affiche, à copier ou télécharger.
+let pendingExport = null;
+
+function openExportDialog(receptions, name, csv, file) {
+  pendingExport = { receptions, name, file };
+  $('export-name').textContent = name;
+  $('export-csv').value = csv;
+  $('dlg-export').showModal();
+}
+
+$('export-copy').addEventListener('click', async () => {
+  if (!pendingExport) return;
+  const { receptions } = pendingExport;
+  try {
+    await navigator.clipboard.writeText($('export-csv').value);
+    toast('CSV copié : colle-le dans ta base de données');
+  } catch {
+    $('export-csv').select();
+    toast('Texte sélectionné : utilise « Copier » du menu');
+  }
+  markExported(receptions);
+});
+
+$('export-download').addEventListener('click', () => {
+  if (!pendingExport) return;
+  const { receptions, name, file } = pendingExport;
+  const url = URL.createObjectURL(file);
+  const a = el('a', { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  markExported(receptions);
+  toast(`${name} téléchargé`);
+});
+
+$('dlg-export').addEventListener('close', () => { pendingExport = null; });
 
 $('btn-export-pending').addEventListener('click', () => {
   exportReceptions(state.receptions.filter((r) => !r.exportedAt));
