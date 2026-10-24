@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>Saucisson</title>
+<title>Réception stock</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0b">
@@ -19,73 +19,120 @@
 <body>
 
 <header class="topbar">
-  <h1>Saucisson</h1>
-  <div class="topbar-actions">
-    <button id="btn-undo" class="icon-btn" aria-label="Annuler la dernière action" disabled>
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 14 4 9l5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
-    <button id="btn-settings" class="icon-btn" aria-label="Réglages">
-      <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
-  </div>
+  <h1 id="view-title">Réception</h1>
+  <button id="btn-settings" class="icon-btn" aria-label="Réglages">
+    <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
 </header>
 
 <main>
-  <section class="hero">
-    <button id="btn-slice" class="slice-btn" aria-label="Ajouter une tranche">
-      <svg viewBox="0 0 200 200" aria-hidden="true">
-        <circle cx="100" cy="100" r="92" fill="#e9e1d4"/>
-        <circle cx="100" cy="100" r="84" fill="#8e2230"/>
-        <g fill="#f3e7d6">
-          <circle cx="70" cy="62" r="9"/><circle cx="118" cy="52" r="7"/><circle cx="142" cy="88" r="10"/>
-          <circle cx="60" cy="108" r="8"/><circle cx="100" cy="96" r="6"/><circle cx="128" cy="130" r="8"/>
-          <circle cx="84" cy="140" r="9"/><circle cx="48" cy="80" r="5"/><circle cx="152" cy="120" r="5"/>
-          <circle cx="104" cy="160" r="5"/><circle cx="92" cy="70" r="4"/><circle cx="116" cy="108" r="4"/>
-        </g>
-        <g fill="#2a0f12"><circle cx="82" cy="88" r="2.2"/><circle cx="130" cy="72" r="2.2"/><circle cx="74" cy="124" r="2.2"/><circle cx="140" cy="108" r="2.2"/><circle cx="108" cy="140" r="2.2"/><circle cx="100" cy="120" r="2"/></g>
-      </svg>
-      <span class="slice-count" id="total">0</span>
-    </button>
-    <p class="hero-label"><span id="total-label">tranche</span> pour <span id="target-name">—</span> · tape la rondelle</p>
+  <!-- ============================================================ RÉCEPTION -->
+  <section id="view-reception" class="view active">
+    <div class="card">
+      <h2>Livraison</h2>
+      <div class="grid-2">
+        <label>Date
+          <input type="date" id="in-date">
+        </label>
+        <label>N° bon de livraison
+          <input type="text" id="in-bl" placeholder="facultatif" autocomplete="off">
+        </label>
+      </div>
+      <label>Fournisseur
+        <input type="text" id="in-supplier" list="dl-suppliers" placeholder="ex. Salaisons du Lot" autocomplete="off">
+      </label>
+      <datalist id="dl-suppliers"></datalist>
+    </div>
+
+    <form class="card" id="form-line" autocomplete="off">
+      <h2 id="form-line-title">Ajouter un produit</h2>
+      <label>Nom du saucisson
+        <input type="text" id="in-product" list="dl-products" placeholder="ex. Rosette de Lyon" required>
+      </label>
+      <datalist id="dl-products"></datalist>
+
+      <div class="grid-2">
+        <div class="field">
+          <span class="field-label">Pièces</span>
+          <div class="stepper">
+            <button type="button" class="round-btn" id="btn-pieces-minus" aria-label="Une pièce de moins">−</button>
+            <input type="number" id="in-pieces" min="1" step="1" inputmode="numeric" value="1" required>
+            <button type="button" class="round-btn" id="btn-pieces-plus" aria-label="Une pièce de plus">+</button>
+          </div>
+        </div>
+        <label>Grammage (g / pièce)
+          <input type="number" id="in-weight" min="1" step="1" inputmode="numeric" placeholder="ex. 250" required>
+        </label>
+      </div>
+      <p class="muted small" id="line-preview">&nbsp;</p>
+
+      <div class="form-actions">
+        <button type="button" class="text-btn" id="btn-cancel-edit" hidden>Annuler</button>
+        <button type="submit" class="primary-btn wide" id="btn-add-line">Ajouter la ligne</button>
+      </div>
+    </form>
+
+    <div class="card">
+      <div class="section-head">
+        <h2>Produits reçus</h2>
+        <span class="pill" id="lines-count">0</span>
+      </div>
+      <ul id="lines" class="lines"></ul>
+      <p id="lines-empty" class="muted small">Aucun produit pour l'instant. Ajoute la première ligne ci-dessus.</p>
+      <div class="totals" id="totals" hidden>
+        <div><span>Total pièces</span><strong id="tot-pieces">0</strong></div>
+        <div><span>Poids total</span><strong id="tot-weight">0 kg</strong></div>
+      </div>
+    </div>
+
+    <div class="bottom-actions">
+      <button class="text-btn danger" id="btn-clear-draft">Tout effacer</button>
+      <button class="primary-btn accent wide" id="btn-validate" disabled>Valider et exporter</button>
+    </div>
   </section>
 
-  <section class="gauge-card">
-    <div class="gauge-head">
-      <span>Saucissons</span>
-      <strong id="saucissons">0</strong>
-    </div>
-    <div class="sausage" aria-hidden="true">
-      <div class="sausage-body"><div class="sausage-eaten" id="eaten"></div></div>
-      <div class="sausage-string"></div>
-    </div>
-    <p class="gauge-foot" id="gauge-foot">0 tranche · saucisson n°1 : 0/25</p>
+  <!-- ============================================================ HISTORIQUE -->
+  <section id="view-history" class="view">
+    <button class="primary-btn accent wide block" id="btn-export-pending" disabled>Exporter les réceptions en attente</button>
+    <ul id="history" class="history"></ul>
+    <p id="history-empty" class="muted">Aucune réception validée pour l'instant.</p>
   </section>
 
-  <section class="people">
-    <div class="section-head">
-      <h2>Convives</h2>
-      <button id="btn-add-person" class="text-btn">+ Ajouter</button>
-    </div>
-    <ul id="people-list"></ul>
-  </section>
-
-  <section class="history">
-    <div class="section-head">
-      <h2>Soirées précédentes</h2>
-      <button id="btn-new-session" class="text-btn accent">Nouvelle soirée</button>
-    </div>
-    <ul id="history-list"></ul>
-    <p id="history-empty" class="muted">Aucune soirée archivée pour l'instant.</p>
+  <!-- ============================================================ PRODUITS -->
+  <section id="view-products" class="view">
+    <p class="muted small">Catalogue des saucissons déjà reçus. Le grammage habituel est pré-rempli à la saisie. Il se complète tout seul à chaque réception.</p>
+    <ul id="catalog" class="catalog"></ul>
+    <p id="catalog-empty" class="muted">Le catalogue est vide.</p>
   </section>
 </main>
 
+<nav class="tabbar">
+  <button class="tab active" data-view="reception">
+    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 7l9-4 9 4v10l-9 4-9-4z M3 7l9 4 9-4 M12 11v10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    Réception
+  </button>
+  <button class="tab" data-view="history">
+    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M6 3h9l4 4v14H6z M14 3v5h5 M9 13h7 M9 17h7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    Historique<span class="badge" id="badge-pending" hidden></span>
+  </button>
+  <button class="tab" data-view="products">
+    <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9.5" cy="10" r="1.4" fill="currentColor"/><circle cx="14.5" cy="9" r="1.1" fill="currentColor"/><circle cx="13" cy="14.5" r="1.4" fill="currentColor"/><circle cx="9" cy="14" r="0.9" fill="currentColor"/></svg>
+    Produits
+  </button>
+</nav>
+
 <dialog id="dlg-settings">
   <form method="dialog">
-    <h2>Réglages</h2>
-    <label>Tranches par saucisson
-      <input type="number" id="in-per-sausage" min="1" max="500" inputmode="numeric">
+    <h2>Export pour la base de données</h2>
+    <label>Séparateur CSV
+      <select id="in-separator">
+        <option value=";">Point-virgule (;) : Excel en français</option>
+        <option value=",">Virgule (,) : bases de données, Notion</option>
+      </select>
     </label>
-    <p class="muted small">Un saucisson sec classique (~250 g) donne environ 25 tranches fines.</p>
+    <p class="muted small">Le fichier CSV contient une ligne par produit avec ces colonnes :<br>
+      <code>reception_id, date_reception, fournisseur, bon_livraison, produit, pieces, grammage_g, poids_total_kg</code><br>
+      Encodage UTF-8, nombres avec un point décimal.</p>
     <div class="dlg-actions">
       <button value="cancel" class="text-btn">Annuler</button>
       <button value="ok" class="primary-btn">Enregistrer</button>
@@ -93,17 +140,44 @@
   </form>
 </dialog>
 
-<dialog id="dlg-person">
+<dialog id="dlg-product">
   <form method="dialog">
-    <h2 id="dlg-person-title">Nouveau convive</h2>
-    <label>Prénom
-      <input type="text" id="in-person-name" maxlength="30" autocomplete="off">
+    <h2>Modifier le produit</h2>
+    <label>Nom
+      <input type="text" id="in-cat-name" maxlength="80" autocomplete="off">
+    </label>
+    <label>Grammage habituel (g / pièce)
+      <input type="number" id="in-cat-weight" min="1" step="1" inputmode="numeric">
     </label>
     <div class="dlg-actions">
-      <button value="delete" id="btn-delete-person" class="text-btn danger">Supprimer</button>
+      <button value="delete" class="text-btn danger">Supprimer</button>
       <span class="spacer"></span>
       <button value="cancel" class="text-btn">Annuler</button>
       <button value="ok" class="primary-btn">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-confirm">
+  <form method="dialog">
+    <p id="confirm-message" class="confirm-message"></p>
+    <div class="dlg-actions">
+      <button value="cancel" class="text-btn">Annuler</button>
+      <button value="ok" class="primary-btn accent" id="confirm-ok">Supprimer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-export">
+  <form method="dialog">
+    <h2>Export CSV</h2>
+    <p class="muted small" id="export-name"></p>
+    <textarea id="export-csv" readonly rows="8" spellcheck="false"></textarea>
+    <div class="dlg-actions">
+      <button value="close" class="text-btn">Fermer</button>
+      <span class="spacer"></span>
+      <button type="button" class="text-btn accent" id="export-download">Télécharger</button>
+      <button type="button" class="primary-btn" id="export-copy">Copier</button>
     </div>
   </form>
 </dialog>

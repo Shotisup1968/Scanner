@@ -1,7 +1,7 @@
 {
-  "name": "Saucisson",
+  "name": "Saucisson — Réception stock",
   "short_name": "Saucisson",
-  "description": "Compte les tranches de saucisson à l'apéro — par convive, avec historique des soirées.",
+  "description": "Saisie des réceptions de stock de saucissons (nom, pièces, grammage) et export CSV pour la base de données.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
