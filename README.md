@@ -114,6 +114,16 @@ même façon (Safari → « Sur l'écran d'accueil »).
 - **Historique** : chaque réception est marquée « à exporter » / « exporté » ;
   un bouton exporte en un seul fichier toutes celles en attente.
 - **Produits** : catalogue des saucissons avec leur grammage habituel.
+- **Envoi par mail** : avec une adresse dans les réglages, la validation ouvre
+  Mail avec le destinataire, l'objet et le détail déjà remplis (un appui sur
+  « Envoyer »).
+- **Envoi automatique** : avec le script `serveur-ovh/reception.php` installé
+  sur l'hébergement OVH, chaque réception part toute seule par mail (CSV en
+  pièce jointe) et s'ajoute à un journal ; hors-ligne, l'envoi est retenté
+  automatiquement. Installation : voir `serveur-ovh/LISEZMOI.md`.
+- **Sauvegarde / restauration** : un fichier avec tout le contenu de l'appli,
+  pour tout récupérer sur un autre téléphone ou après suppression de l'icône.
+  L'appli demande aussi à l'iPhone de ne pas effacer ses données.
 
 Format CSV (une ligne par produit, UTF-8 avec BOM pour Excel, point décimal,
 séparateur point-virgule par défaut pour Excel en français, virgule au choix

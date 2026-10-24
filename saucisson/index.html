@@ -123,16 +123,52 @@
 
 <dialog id="dlg-settings">
   <form method="dialog">
-    <h2>Export pour la base de données</h2>
-    <label>Séparateur CSV
-      <select id="in-separator">
-        <option value=";">Point-virgule (;) : Excel en français</option>
-        <option value=",">Virgule (,) : bases de données, Notion</option>
-      </select>
-    </label>
-    <p class="muted small">Le fichier CSV contient une ligne par produit avec ces colonnes :<br>
-      <code>reception_id, date_reception, fournisseur, bon_livraison, produit, pieces, grammage_g, poids_total_kg</code><br>
-      Encodage UTF-8, nombres avec un point décimal.</p>
+    <h2>Réglages</h2>
+
+    <section class="settings-group">
+      <h3>Envoi par mail</h3>
+      <label>Adresse qui reçoit les réceptions
+        <input type="email" id="in-email" placeholder="ex. stock@notoriouspig.fr" autocomplete="email" inputmode="email">
+      </label>
+      <p class="muted small">À la validation, Mail s'ouvre avec l'adresse, l'objet et le détail de la réception déjà remplis : il reste à appuyer sur « Envoyer ».</p>
+    </section>
+
+    <details class="settings-group">
+      <summary>Envoi automatique (serveur OVH)</summary>
+      <div class="settings-body">
+      <p class="muted small">Une fois le script <code>serveur-ovh/reception.php</code> installé sur votre hébergement OVH, chaque réception validée est envoyée par mail toute seule, sans ouvrir Mail. Sans réseau, l'envoi est retenté automatiquement.</p>
+      <label>Adresse du script
+        <input type="url" id="in-server-url" placeholder="https://votre-site.fr/reception.php" autocomplete="off" inputmode="url">
+      </label>
+      <label>Clé secrète
+        <input type="password" id="in-server-key" autocomplete="off">
+      </label>
+      <button type="button" class="text-btn accent" id="btn-test-server">Tester la connexion</button>
+      </div>
+    </details>
+
+    <section class="settings-group">
+      <h3>Fichier CSV</h3>
+      <label>Séparateur
+        <select id="in-separator">
+          <option value=";">Point-virgule (;) : Excel en français</option>
+          <option value=",">Virgule (,) : bases de données, Notion</option>
+        </select>
+      </label>
+      <p class="muted small">Une ligne par produit, colonnes : <code>reception_id, date_reception, fournisseur, bon_livraison, produit, pieces, grammage_g, poids_total_kg</code>.</p>
+    </section>
+
+    <section class="settings-group">
+      <h3>Sauvegarde</h3>
+      <p class="muted small">Crée un fichier avec tout le contenu de l'appli (réceptions, produits, fournisseurs). Garde-le dans Fichiers, Drive ou un mail pour tout récupérer sur un autre téléphone ou après une suppression de l'appli.</p>
+      <p class="small" id="backup-info"></p>
+      <div class="backup-actions">
+        <button type="button" class="primary-btn" id="btn-backup">Sauvegarder</button>
+        <button type="button" class="text-btn accent" id="btn-restore">Restaurer une sauvegarde</button>
+      </div>
+      <input type="file" id="in-restore" accept=".json,application/json" hidden>
+    </section>
+
     <div class="dlg-actions">
       <button value="cancel" class="text-btn">Annuler</button>
       <button value="ok" class="primary-btn">Enregistrer</button>
