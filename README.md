@@ -98,19 +98,30 @@ scripts/server.ps1        petit serveur local pour tester (voir plus haut)
 scripts/make-icons.ps1    génère les icônes dans icons/
 ```
 
-## Bonus : compteur de saucisson (`saucisson/`)
+## Réception de stock saucissons (`saucisson/`)
 
-Une seconde petite PWA, indépendante du Scanner, pour compter les tranches de
-saucisson à l'apéro. Servie sur `https://<ton-compte>.github.io/<nom-repo>/saucisson/`
-et installable de la même façon (Safari → « Sur l'écran d'accueil »).
+Une seconde PWA, indépendante du Scanner, pour saisir les arrivages de
+saucissons et les envoyer dans la base de données. Servie sur
+`https://<ton-compte>.github.io/<nom-repo>/saucisson/` et installable de la
+même façon (Safari → « Sur l'écran d'accueil »).
 
-- Tape la grosse rondelle = +1 tranche pour le convive sélectionné
-- Plusieurs convives avec +/− chacun, couronne 👑 pour celui qui en mange le plus
-  (appui long sur un prénom pour le renommer ou le supprimer)
-- Jauge « saucisson » qui se vide, nombre de saucissons mangés (25 tranches
-  par saucisson par défaut, réglable)
-- Bouton annuler, archivage des soirées précédentes
-- Tout est stocké localement (localStorage), fonctionne hors-ligne
+- **Réception** : date, fournisseur, n° de bon de livraison, puis une ligne par
+  produit : nom du saucisson, nombre de pièces, grammage par pièce (le poids
+  total est calculé). Un produit déjà connu pré-remplit son grammage habituel ;
+  le même produit au même grammage est cumulé sur une seule ligne.
+- **Valider et exporter** : la réception est archivée et la feuille de partage
+  iOS s'ouvre directement avec le fichier CSV (Mail, Drive, Fichiers…).
+- **Historique** : chaque réception est marquée « à exporter » / « exporté » ;
+  un bouton exporte en un seul fichier toutes celles en attente.
+- **Produits** : catalogue des saucissons avec leur grammage habituel.
+
+Format CSV (une ligne par produit, UTF-8, point décimal, séparateur virgule
+ou point-virgule au choix dans les réglages) :
+
+```
+reception_id,date_reception,fournisseur,bon_livraison,produit,pieces,grammage_g,poids_total_kg
+R20261024-01-K3F9,2026-10-24,Salaisons du Lot,BL-4521,Rosette de Lyon,12,250,3.000
+```
 
 ## Confidentialité
 
