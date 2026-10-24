@@ -98,6 +98,20 @@ scripts/server.ps1        petit serveur local pour tester (voir plus haut)
 scripts/make-icons.ps1    génère les icônes dans icons/
 ```
 
+## Bonus : compteur de saucisson (`saucisson/`)
+
+Une seconde petite PWA, indépendante du Scanner, pour compter les tranches de
+saucisson à l'apéro. Servie sur `https://<ton-compte>.github.io/<nom-repo>/saucisson/`
+et installable de la même façon (Safari → « Sur l'écran d'accueil »).
+
+- Tape la grosse rondelle = +1 tranche pour le convive sélectionné
+- Plusieurs convives avec +/− chacun, couronne 👑 pour celui qui en mange le plus
+  (appui long sur un prénom pour le renommer ou le supprimer)
+- Jauge « saucisson » qui se vide, nombre de saucissons mangés (25 tranches
+  par saucisson par défaut, réglable)
+- Bouton annuler, archivage des soirées précédentes
+- Tout est stocké localement (localStorage), fonctionne hors-ligne
+
 ## Confidentialité
 
 Aucun compte, aucun tracker et aucune donnée de document envoyée à un
