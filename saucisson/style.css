@@ -220,3 +220,13 @@ textarea {
   width: 100%; resize: vertical; font-family: var(--font-hud); font-size: 12px; line-height: 1.5;
   color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px;
 }
+
+/* --- Réglages --- */
+#dlg-settings { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.settings-group { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.settings-group h3 { margin: 0; font-size: 15px; }
+details.settings-group summary { font-weight: 700; font-size: 15px; cursor: pointer; }
+details.settings-group { display: block; }
+.settings-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+details.settings-group .text-btn { align-self: flex-start; padding-left: 0; }
+.backup-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

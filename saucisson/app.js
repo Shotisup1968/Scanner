@@ -19,8 +19,15 @@ function emptyDraft() {
   return { date: today(), supplier: '', bl: '', lines: [] };
 }
 
+// email : boîte qui reçoit les réceptions ; serverUrl/serverKey : script
+// d'envoi automatique hébergé chez OVH (voir serveur-ovh/).
+const DEFAULT_SETTINGS = { email: '', serverUrl: '', serverKey: '' };
+
 function loadState() {
-  const base = { draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ';' };
+  const base = {
+    draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ';',
+    settings: { ...DEFAULT_SETTINGS }, lastBackupAt: null,
+  };
   try {
     localStorage.removeItem('saucisson-state-v1'); // ancienne version "jeu", plus utilisée
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -32,6 +39,8 @@ function loadState() {
       catalog: s.catalog && typeof s.catalog === 'object' ? s.catalog : {},
       suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],
       separator: s.separator === ',' ? ',' : ';',
+      settings: { ...DEFAULT_SETTINGS, ...(s.settings && typeof s.settings === 'object' ? s.settings : {}) },
+      lastBackupAt: s.lastBackupAt || null,
     };
   } catch {
     return base;
@@ -169,14 +178,25 @@ function renderDatalists() {
   $('dl-suppliers').replaceChildren(...state.suppliers.map((s) => el('option', { value: s })));
 }
 
+function isDelivered(r) {
+  return Boolean(r.exportedAt || r.sentAt);
+}
+
+function statusOf(r) {
+  if (r.sentAt) return { cls: 'done', text: 'Envoyé' };
+  if (r.exportedAt) return { cls: 'done', text: 'Exporté' };
+  if (r.queued) return { cls: 'pending', text: 'Envoi en attente' };
+  return { cls: 'pending', text: 'À exporter' };
+}
+
 function renderHistory() {
-  const pending = state.receptions.filter((r) => !r.exportedAt);
+  const pending = state.receptions.filter((r) => !isDelivered(r));
   $('badge-pending').hidden = pending.length === 0;
   $('badge-pending').textContent = pending.length;
   $('btn-export-pending').disabled = pending.length === 0;
   $('btn-export-pending').textContent = pending.length
-    ? `Exporter les réceptions en attente (${pending.length})`
-    : 'Tout est exporté ✓';
+    ? `${deliveryMode() === 'share' ? 'Exporter' : 'Envoyer'} les réceptions en attente (${pending.length})`
+    : 'Tout est envoyé ✓';
   $('history-empty').hidden = state.receptions.length > 0;
 
   $('history').replaceChildren(...state.receptions.map((r) => {
@@ -185,7 +205,7 @@ function renderHistory() {
       el('span', { className: 'h-main' },
         el('span', { className: 'h-title', textContent: `${r.supplier || 'Fournisseur non précisé'}${r.bl ? ' · n° ' + r.bl : ''}` }),
         el('span', { className: 'h-sub', textContent: `${formatDate(r.date)} · ${t.pieces} pcs · ${formatKg(t.kg)}` })),
-      el('span', { className: `status ${r.exportedAt ? 'done' : 'pending'}`, textContent: r.exportedAt ? 'Exporté' : 'À exporter' }));
+      el('span', { className: `status ${statusOf(r).cls}`, textContent: statusOf(r).text }));
 
     const table = el('table', {},
       el('thead', {}, el('tr', {},
@@ -197,14 +217,32 @@ function renderHistory() {
         el('td', { className: 'num', textContent: l.weight }),
         el('td', { className: 'num', textContent: formatKg(lineKg(l)) })))));
 
-    const exportBtn = el('button', { className: 'primary-btn', type: 'button', textContent: r.exportedAt ? 'Ré-exporter' : 'Exporter CSV' });
-    exportBtn.addEventListener('click', () => exportReceptions([r]));
+    const actions = [];
     const delBtn = el('button', { className: 'text-btn danger', type: 'button', textContent: 'Supprimer' });
     delBtn.addEventListener('click', () => deleteReception(r.id));
+    actions.push(delBtn);
+
+    const fileBtn = el('button', { className: 'text-btn accent', type: 'button', textContent: 'Fichier CSV' });
+    fileBtn.addEventListener('click', () => exportReceptions([r]));
+    actions.push(fileBtn);
+
+    if (state.settings.serverUrl) {
+      const sendBtn = el('button', { className: 'primary-btn', type: 'button', textContent: r.sentAt ? 'Renvoyer' : 'Envoyer' });
+      sendBtn.addEventListener('click', () => sendToServer([r], { manual: true }));
+      actions.push(sendBtn);
+    } else if (state.settings.email) {
+      const mailBtn = el('button', { className: 'primary-btn', type: 'button', textContent: 'Envoyer par mail' });
+      mailBtn.addEventListener('click', () => openMail([r]));
+      actions.push(mailBtn);
+    }
+
+    const info = [`Réf. ${r.id}`];
+    if (r.sentAt) info.push(`envoyé le ${new Date(r.sentAt).toLocaleString('fr-FR')}`);
+    else if (r.exportedAt) info.push(`exporté le ${new Date(r.exportedAt).toLocaleString('fr-FR')}`);
 
     const li = el('li', {}, head, el('div', { className: 'h-body' },
-      el('p', { className: 'muted small', textContent: `Réf. ${r.id}${r.exportedAt ? ' · exporté le ' + new Date(r.exportedAt).toLocaleString('fr-FR') : ''}`, style: 'margin-top:10px' }),
-      table, el('div', { className: 'h-actions' }, delBtn, exportBtn)));
+      el('p', { className: 'muted small', textContent: info.join(' · '), style: 'margin-top:10px' }),
+      table, el('div', { className: 'h-actions' }, ...actions)));
     head.addEventListener('click', () => li.classList.toggle('open'));
     return li;
   }));
@@ -398,9 +436,27 @@ $('btn-validate').addEventListener('click', () => {
   resetForm();
   renderAll();
 
-  // Même geste utilisateur : la feuille de partage iOS s'ouvre directement.
-  exportReceptions([reception]);
+  deliver([reception]);
 });
+
+// Serveur configuré : envoi automatique. Sinon adresse mail : mail
+// prérempli. Sinon : feuille de partage avec le fichier CSV.
+function deliveryMode() {
+  if (state.settings.serverUrl) return 'server';
+  if (state.settings.email) return 'mail';
+  return 'share';
+}
+
+function deliver(receptions) {
+  const mode = deliveryMode();
+  if (mode === 'server') sendToServer(receptions);
+  else if (mode === 'mail') openMail(receptions);
+  else exportReceptions(receptions); // même geste : la feuille de partage s'ouvre
+}
+
+function updateValidateLabel() {
+  $('btn-validate').textContent = { server: 'Valider et envoyer', mail: 'Valider et envoyer par mail', share: 'Valider et exporter' }[deliveryMode()];
+}
 
 async function deleteReception(id) {
   const r = state.receptions.find((x) => x.id === id);
@@ -519,20 +575,248 @@ $('export-download').addEventListener('click', () => {
 $('dlg-export').addEventListener('close', () => { pendingExport = null; });
 
 $('btn-export-pending').addEventListener('click', () => {
-  exportReceptions(state.receptions.filter((r) => !r.exportedAt));
+  deliver(state.receptions.filter((r) => !isDelivered(r)));
+});
+
+// ---------------------------------------------------------------- envoi par mail
+
+function receptionSummary(r) {
+  const t = totals(r.lines);
+  return [
+    `Réception du ${formatDate(r.date)}`,
+    `Fournisseur : ${r.supplier || 'non précisé'}`,
+    `N° bon de livraison : ${r.bl || '-'}`,
+    `Référence : ${r.id}`,
+    '',
+    ...r.lines.map((l) => `- ${l.product} : ${l.pieces} pcs × ${l.weight} g = ${formatKg(lineKg(l))}`),
+    '',
+    `Total : ${t.pieces} ${plural(t.pieces, 'pièce')}, ${formatKg(t.kg)}`,
+  ].join('\n');
+}
+
+function mailSubject(receptions) {
+  if (receptions.length === 1) {
+    const r = receptions[0];
+    return `Réception stock ${r.date}${r.supplier ? ' - ' + r.supplier : ''}`;
+  }
+  return `Réceptions stock (${receptions.length}) - ${today()}`;
+}
+
+// iOS ne permet pas de joindre un fichier via un lien mailto : le détail et
+// le CSV (à coller dans Excel) sont dans le corps du mail.
+function openMail(receptions) {
+  if (!receptions.length) return;
+  const body = [
+    ...receptions.map(receptionSummary).join('\n\n----------\n\n').split('\n'),
+    '',
+    '--- CSV (à coller dans Excel) ---',
+    buildCsv(receptions).replace(/^\uFEFF/, '').trimEnd(),
+  ].join('\r\n');
+  const url = `mailto:${encodeURIComponent(state.settings.email).replace(/%40/g, '@')}`
+    + `?subject=${encodeURIComponent(mailSubject(receptions))}&body=${encodeURIComponent(body)}`;
+  window.location.href = url;
+  markExported(receptions);
+  toast('Mail prêt : appuie sur « Envoyer » dans Mail');
+}
+
+// ---------------------------------------------------------------- envoi automatique (serveur)
+
+let sending = false;
+
+async function sendToServer(receptions, { manual = false } = {}) {
+  const { serverUrl, serverKey } = state.settings;
+  if (!serverUrl || !receptions.length || sending) return;
+  receptions.forEach((r) => {
+    const stored = state.receptions.find((x) => x.id === r.id);
+    if (stored && !stored.sentAt) stored.queued = true;
+  });
+  saveState();
+  renderHistory();
+
+  sending = true;
+  try {
+    const res = await postToServer({
+      cle: serverKey,
+      receptions: receptions.map(({ id, date, supplier, bl, lines, createdAt }) => ({ id, date, supplier, bl, lines, createdAt })),
+    });
+    const now = Date.now();
+    (res.recues || []).forEach((id) => {
+      const stored = state.receptions.find((x) => x.id === id);
+      if (stored) { stored.sentAt = now; stored.queued = false; }
+    });
+    saveState();
+    renderHistory();
+    toast(receptions.length > 1 ? `${receptions.length} réceptions envoyées` : 'Réception envoyée');
+  } catch (err) {
+    toast(manual || !navigator.onLine
+      ? `Envoi impossible (${err.message}). Nouvel essai automatique plus tard.`
+      : 'Envoi en attente : nouvel essai dès que le réseau revient.');
+  } finally {
+    sending = false;
+  }
+}
+
+async function postToServer(payload) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const resp = await fetch(state.settings.serverUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal,
+    });
+    let data = null;
+    try { data = await resp.json(); } catch { /* réponse non JSON */ }
+    if (!resp.ok || !data || !data.ok) {
+      throw new Error((data && data.erreur) || `erreur serveur ${resp.status}`);
+    }
+    return data;
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('délai dépassé');
+    if (err instanceof TypeError) throw new Error('serveur injoignable');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function retryQueue() {
+  const queued = state.receptions.filter((r) => r.queued && !r.sentAt);
+  if (queued.length && navigator.onLine) sendToServer(queued);
+}
+window.addEventListener('online', retryQueue);
+
+// ---------------------------------------------------------------- sauvegarde / restauration
+
+const BACKUP_APP = 'saucisson-reception';
+
+function renderBackupInfo() {
+  $('backup-info').textContent = state.lastBackupAt
+    ? `Dernière sauvegarde : ${new Date(state.lastBackupAt).toLocaleString('fr-FR')}`
+    : 'Aucune sauvegarde pour l\'instant.';
+}
+
+async function saveBackup() {
+  const data = {
+    app: BACKUP_APP,
+    version: 1,
+    savedAt: new Date().toISOString(),
+    receptions: state.receptions,
+    catalog: state.catalog,
+    suppliers: state.suppliers,
+    separator: state.separator,
+    settings: { email: state.settings.email, serverUrl: state.settings.serverUrl }, // pas la clé secrète
+  };
+  const name = `saucisson-sauvegarde-${today()}.json`;
+  const file = new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' });
+
+  let saved = false;
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: name });
+      saved = true;
+    } catch (err) {
+      if (err && err.name === 'AbortError') { toast('Sauvegarde annulée'); return; }
+    }
+  }
+  if (!saved) {
+    const url = URL.createObjectURL(file);
+    const a = el('a', { href: url, download: name });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+  state.lastBackupAt = Date.now();
+  saveState();
+  renderBackupInfo();
+  toast('Sauvegarde créée : garde le fichier dans Fichiers, Drive ou un mail');
+}
+
+// Restauration par fusion : rien de ce qui est déjà dans l'appli n'est effacé.
+async function restoreBackup(file) {
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {
+    toast('Ce fichier n\'est pas une sauvegarde lisible.');
+    return;
+  }
+  if (!data || data.app !== BACKUP_APP || !Array.isArray(data.receptions)) {
+    toast('Ce fichier n\'est pas une sauvegarde de l\'appli Saucisson.');
+    return;
+  }
+  const known = new Set(state.receptions.map((r) => r.id));
+  const newReceptions = data.receptions.filter((r) => r && r.id && Array.isArray(r.lines) && !known.has(r.id));
+  const catalog = data.catalog && typeof data.catalog === 'object' ? data.catalog : {};
+  const newProducts = Object.keys(catalog).filter((k) => !state.catalog[k]);
+
+  if (!newReceptions.length && !newProducts.length) {
+    toast('Rien de nouveau dans cette sauvegarde : tout est déjà dans l\'appli.');
+    return;
+  }
+  const msg = `Ajouter ${newReceptions.length} ${plural(newReceptions.length, 'réception')} et ${newProducts.length} ${plural(newProducts.length, 'produit')} depuis la sauvegarde du ${new Date(data.savedAt).toLocaleDateString('fr-FR')} ?\nCe qui est déjà dans l'appli est conservé.`;
+  if (!(await ask(msg, 'Restaurer'))) return;
+
+  state.receptions = [...state.receptions, ...newReceptions].sort((a, b) => b.createdAt - a.createdAt);
+  newProducts.forEach((k) => { state.catalog[k] = catalog[k]; });
+  (Array.isArray(data.suppliers) ? data.suppliers : []).forEach((sup) => {
+    if (!state.suppliers.includes(sup)) state.suppliers.push(sup);
+  });
+  if (data.settings) {
+    if (!state.settings.email && data.settings.email) state.settings.email = data.settings.email;
+    if (!state.settings.serverUrl && data.settings.serverUrl) state.settings.serverUrl = data.settings.serverUrl;
+  }
+  saveState();
+  renderAll();
+  toast('Sauvegarde restaurée');
+}
+
+$('btn-backup').addEventListener('click', saveBackup);
+$('btn-restore').addEventListener('click', () => $('in-restore').click());
+$('in-restore').addEventListener('change', () => {
+  const file = $('in-restore').files[0];
+  $('in-restore').value = '';
+  if (file) restoreBackup(file);
+});
+
+$('btn-test-server').addEventListener('click', async () => {
+  const url = $('in-server-url').value.trim();
+  if (!url) { toast('Renseigne d\'abord l\'adresse du script.'); return; }
+  const previous = state.settings.serverUrl;
+  state.settings.serverUrl = url; // test avec les valeurs saisies, sans les enregistrer
+  try {
+    await postToServer({ cle: $('in-server-key').value.trim(), test: true });
+    toast('Connexion au serveur OK');
+  } catch (err) {
+    toast(`Échec du test : ${err.message}`);
+  } finally {
+    state.settings.serverUrl = previous;
+  }
 });
 
 // ---------------------------------------------------------------- dialogues
 
 $('btn-settings').addEventListener('click', () => {
   $('in-separator').value = state.separator;
+  $('in-email').value = state.settings.email;
+  $('in-server-url').value = state.settings.serverUrl;
+  $('in-server-key').value = state.settings.serverKey;
+  renderBackupInfo();
   $('dlg-settings').showModal();
 });
 $('dlg-settings').addEventListener('close', () => {
   if ($('dlg-settings').returnValue !== 'ok') return;
   state.separator = $('in-separator').value === ';' ? ';' : ',';
+  state.settings.email = $('in-email').value.trim();
+  state.settings.serverUrl = $('in-server-url').value.trim();
+  state.settings.serverKey = $('in-server-key').value.trim();
   saveState();
+  updateValidateLabel();
+  renderHistory();
   toast('Réglages enregistrés');
+  retryQueue();
 });
 
 let editingProductKey = null;
@@ -566,6 +850,16 @@ $('dlg-product').addEventListener('close', () => {
 
 renderAll();
 resetForm();
+updateValidateLabel();
+retryQueue();
+
+// Demande à l'iPhone de ne pas effacer les données de l'appli quand il
+// manque de place (même principe que le Scanner).
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persisted()
+    .then((already) => already || navigator.storage.persist())
+    .catch(() => {});
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
