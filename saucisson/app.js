@@ -20,7 +20,7 @@ function emptyDraft() {
 }
 
 function loadState() {
-  const base = { draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ',' };
+  const base = { draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ';' };
   try {
     localStorage.removeItem('saucisson-state-v1'); // ancienne version "jeu", plus utilisée
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -31,7 +31,7 @@ function loadState() {
       receptions: Array.isArray(s.receptions) ? s.receptions : [],
       catalog: s.catalog && typeof s.catalog === 'object' ? s.catalog : {},
       suppliers: Array.isArray(s.suppliers) ? s.suppliers : [],
-      separator: s.separator === ';' ? ';' : ',',
+      separator: s.separator === ',' ? ',' : ';',
     };
   } catch {
     return base;
@@ -430,7 +430,8 @@ function buildCsv(receptions) {
       rows.push([r.id, r.date, r.supplier, r.bl, l.product, l.pieces, l.weight, lineKg(l).toFixed(3)]);
     });
   });
-  return rows.map((row) => row.map((v) => csvField(v, sep)).join(sep)).join('\r\n') + '\r\n';
+  // BOM UTF-8 : sans lui, Excel affiche mal les accents (« JÃ©sus »).
+  return '\uFEFF' + rows.map((row) => row.map((v) => csvField(v, sep)).join(sep)).join('\r\n') + '\r\n';
 }
 
 function slug(s) {
@@ -484,7 +485,7 @@ let pendingExport = null;
 function openExportDialog(receptions, name, csv, file) {
   pendingExport = { receptions, name, file };
   $('export-name').textContent = name;
-  $('export-csv').value = csv;
+  $('export-csv').value = csv.replace(/^\uFEFF/, ''); // le BOM ne sert qu'au fichier
   $('dlg-export').showModal();
 }
 
@@ -511,6 +512,7 @@ $('export-download').addEventListener('click', () => {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   markExported(receptions);
+  $('dlg-export').close();
   toast(`${name} téléchargé`);
 });
 

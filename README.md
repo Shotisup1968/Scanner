@@ -115,12 +115,13 @@ même façon (Safari → « Sur l'écran d'accueil »).
   un bouton exporte en un seul fichier toutes celles en attente.
 - **Produits** : catalogue des saucissons avec leur grammage habituel.
 
-Format CSV (une ligne par produit, UTF-8, point décimal, séparateur virgule
-ou point-virgule au choix dans les réglages) :
+Format CSV (une ligne par produit, UTF-8 avec BOM pour Excel, point décimal,
+séparateur point-virgule par défaut pour Excel en français, virgule au choix
+dans les réglages pour une base de données ou Notion) :
 
 ```
-reception_id,date_reception,fournisseur,bon_livraison,produit,pieces,grammage_g,poids_total_kg
-R20261024-01-K3F9,2026-10-24,Salaisons du Lot,BL-4521,Rosette de Lyon,12,250,3.000
+reception_id;date_reception;fournisseur;bon_livraison;produit;pieces;grammage_g;poids_total_kg
+R20261024-01-K3F9;2026-10-24;Salaisons du Lot;BL-4521;Rosette de Lyon;12;250;3.000
 ```
 
 ## Confidentialité
