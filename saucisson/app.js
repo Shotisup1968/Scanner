@@ -21,7 +21,8 @@ function emptyDraft() {
 
 // email : boîte qui reçoit les réceptions ; serverUrl/serverKey : script
 // d'envoi automatique hébergé chez OVH (voir serveur-ovh/).
-const DEFAULT_SETTINGS = { email: '', serverUrl: '', serverKey: '' };
+const DEFAULT_EMAIL = 'commandes@notoriouspig.eu';
+const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '' };
 
 function loadState() {
   const base = {
@@ -33,7 +34,7 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return base;
     const s = JSON.parse(raw);
-    return {
+    const loaded = {
       draft: s.draft && Array.isArray(s.draft.lines) ? s.draft : base.draft,
       receptions: Array.isArray(s.receptions) ? s.receptions : [],
       catalog: s.catalog && typeof s.catalog === 'object' ? s.catalog : {},
@@ -42,6 +43,9 @@ function loadState() {
       settings: { ...DEFAULT_SETTINGS, ...(s.settings && typeof s.settings === 'object' ? s.settings : {}) },
       lastBackupAt: s.lastBackupAt || null,
     };
+    // Adresse de Notorious PIG par défaut si aucune n'a été saisie.
+    if (!loaded.settings.email) loaded.settings.email = DEFAULT_EMAIL;
+    return loaded;
   } catch {
     return base;
   }
