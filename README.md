@@ -125,14 +125,23 @@ même façon (Safari → « Sur l'écran d'accueil »).
   pour tout récupérer sur un autre téléphone ou après suppression de l'icône.
   L'appli demande aussi à l'iPhone de ne pas effacer ses données.
 
-Format CSV (une ligne par produit, UTF-8 avec BOM pour Excel, point décimal,
-séparateur point-virgule par défaut pour Excel en français, virgule au choix
-dans les réglages pour une base de données ou Notion) :
+Format CSV (une ligne par produit, UTF-8 avec BOM), deux variantes au choix
+dans les réglages :
 
-```
-reception_id;date_reception;fournisseur;bon_livraison;produit;pieces;grammage_g;poids_total_kg
-R20261024-01-K3F9;2026-10-24;Salaisons du Lot;BL-4521;Rosette de Lyon;12;250;3.000
-```
+- **Excel / Numbers en français** (par défaut) : point-virgule, dates
+  JJ/MM/AAAA, virgule décimale, unités dans les en-têtes
+
+  ```
+  Réf. réception;Date;Fournisseur;N° bon de livraison;Produit;Pièces;Grammage (g);Poids total (kg)
+  R20261024-01-K3F9;24/10/2026;Val d'Allier;1;Pur porc;34;170;5,78
+  ```
+
+- **Import base de données / Notion** : virgule, format technique
+
+  ```
+  reception_id,date_reception,fournisseur,bon_livraison,produit,pieces,grammage_g,poids_total_kg
+  R20261024-01-K3F9,2026-10-24,Val d'Allier,1,Pur porc,34,170,5.780
+  ```
 
 ## Confidentialité
 
