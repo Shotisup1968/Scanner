@@ -12,7 +12,10 @@ header('Access-Control-Allow-Headers: Content-Type');
 header('Vary: Origin');
 header('Content-Type: application/json; charset=utf-8');
 
+// Journal : format technique (future base de données). Pièce jointe du
+// mail : format lisible dans Excel/Numbers en français.
 const COLONNES = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
+const COLONNES_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
 
 function repondre(int $code, array $donnees): void
 {
@@ -67,6 +70,27 @@ function lignes_csv(array $r): array
     return $rows;
 }
 
+function date_fr(string $iso): string
+{
+    [$a, $m, $j] = explode('-', $iso);
+    return "$j/$m/$a";
+}
+
+// 5.780 -> 5,78 ; 0.765 -> 0,765
+function kg_fr(string $kg): string
+{
+    return str_replace('.', ',', rtrim(rtrim($kg, '0'), '.'));
+}
+
+function lignes_fr(array $rows): array
+{
+    return array_map(function ($row) {
+        $row[1] = date_fr($row[1]);
+        $row[7] = kg_fr($row[7]);
+        return $row;
+    }, $rows);
+}
+
 function csv_texte(array $rows): string
 {
     $f = fopen('php://temp', 'r+');
@@ -116,7 +140,7 @@ function envoyer_mail(array $config, array $receptions, array $rows): bool
     $corps = [];
     foreach ($receptions as $r) {
         $pieces = 0; $kg = 0.0;
-        $corps[] = 'Réception du ' . $r['date'];
+        $corps[] = 'Réception du ' . date_fr($r['date']);
         $corps[] = 'Fournisseur : ' . ($r['fournisseur'] !== '' ? $r['fournisseur'] : 'non précisé');
         $corps[] = 'N° bon de livraison : ' . ($r['bl'] !== '' ? $r['bl'] : '-');
         $corps[] = 'Référence : ' . $r['id'];
@@ -133,9 +157,9 @@ function envoyer_mail(array $config, array $receptions, array $rows): bool
     $corps[] = 'Le fichier CSV est en pièce jointe (s\'ouvre dans Excel).';
 
     $nomFichier = count($receptions) === 1
-        ? 'reception_' . $premiere['date'] . '_' . $premiere['id'] . '.csv'
-        : 'receptions_' . date('Y-m-d') . '.csv';
-    $csv = "\xEF\xBB\xBF" . csv_texte(array_merge([COLONNES], $rows));
+        ? 'reception_' . str_replace('/', '-', date_fr($premiere['date'])) . '_' . $premiere['id'] . '.csv'
+        : 'receptions_' . date('d-m-Y') . '.csv';
+    $csv = "\xEF\xBB\xBF" . csv_texte(array_merge([COLONNES_FR], lignes_fr($rows)));
 
     $frontiere = 'saucisson-' . bin2hex(random_bytes(12));
     $entetes = implode("\r\n", [

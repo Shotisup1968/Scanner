@@ -149,13 +149,13 @@
 
     <section class="settings-group">
       <h3>Fichier CSV</h3>
-      <label>Séparateur
+      <label>Format
         <select id="in-separator">
-          <option value=";">Point-virgule (;) : Excel en français</option>
-          <option value=",">Virgule (,) : bases de données, Notion</option>
+          <option value=";">Excel / Numbers en français</option>
+          <option value=",">Import base de données, Notion</option>
         </select>
       </label>
-      <p class="muted small">Une ligne par produit, colonnes : <code>reception_id, date_reception, fournisseur, bon_livraison, produit, pieces, grammage_g, poids_total_kg</code>.</p>
+      <p class="muted small">Une ligne par produit. <strong>Excel / Numbers</strong> : dates 24/10/2026, nombres avec virgule (5,78), unités dans les en-têtes (« Poids total (kg) »). <strong>Base de données</strong> : format technique (2026-10-24, 5.780, <code>poids_total_kg</code>…).</p>
     </section>
 
     <section class="settings-group">

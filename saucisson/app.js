@@ -474,7 +474,18 @@ async function deleteReception(id) {
 
 // ---------------------------------------------------------------- export CSV
 
+// Deux formats : "Excel" (point-virgule) lisible en français — dates
+// JJ/MM/AAAA, virgule décimale, en-têtes avec unités — et "base de données"
+// (virgule) technique — dates AAAA-MM-JJ, point décimal, en-têtes codés.
 const CSV_COLUMNS = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
+const CSV_COLUMNS_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
+
+function frDate(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+const nfCsvFr = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3, useGrouping: false });
 
 function csvField(value, sep) {
   const s = String(value ?? '');
@@ -483,11 +494,15 @@ function csvField(value, sep) {
 
 function buildCsv(receptions) {
   const sep = state.separator;
-  const rows = [CSV_COLUMNS];
+  const excel = sep === ';';
+  const rows = [excel ? CSV_COLUMNS_FR : CSV_COLUMNS];
   // Ordre chronologique dans le fichier, plus naturel pour un import.
   [...receptions].sort((a, b) => a.createdAt - b.createdAt).forEach((r) => {
     r.lines.forEach((l) => {
-      rows.push([r.id, r.date, r.supplier, r.bl, l.product, l.pieces, l.weight, lineKg(l).toFixed(3)]);
+      const kg = Math.round(lineKg(l) * 1000) / 1000;
+      rows.push(excel
+        ? [r.id, frDate(r.date), r.supplier, r.bl, l.product, l.pieces, l.weight, nfCsvFr.format(kg)]
+        : [r.id, r.date, r.supplier, r.bl, l.product, l.pieces, l.weight, kg.toFixed(3)]);
     });
   });
   // BOM UTF-8 : sans lui, Excel affiche mal les accents (« JÃ©sus »).
@@ -501,9 +516,9 @@ function slug(s) {
 function csvFileName(receptions) {
   if (receptions.length === 1) {
     const r = receptions[0];
-    return `reception_${r.date}${r.supplier ? '_' + slug(r.supplier) : ''}.csv`;
+    return `reception_${frDate(r.date).replace(/\//g, '-')}${r.supplier ? '_' + slug(r.supplier) : ''}.csv`;
   }
-  return `receptions_${today()}_${receptions.length}.csv`;
+  return `receptions_${frDate(today()).replace(/\//g, '-')}_${receptions.length}.csv`;
 }
 
 function markExported(receptions) {
