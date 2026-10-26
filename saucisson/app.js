@@ -24,10 +24,42 @@ function emptyDraft() {
 const DEFAULT_EMAIL = 'commandes@notoriouspig.eu';
 const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '' };
 
+// Types de produits reçus. Les données d'avant leur ajout sont des saucissons.
+const CATEGORIES = ['Saucisson', 'Fuet', 'Noix d\'épaule', 'Terrine', 'Rillettes'];
+const DEFAULT_CATEGORY = CATEGORIES[0];
+const PLACEHOLDERS = {
+  Saucisson: 'ex. Piment fort',
+  Fuet: 'ex. Fuet nature',
+  'Noix d\'épaule': 'ex. Noix d\'épaule au poivre',
+  Terrine: 'ex. Terrine de campagne',
+  Rillettes: 'ex. Rillettes de canard',
+};
+
+function validCategory(c) {
+  return CATEGORIES.includes(c) ? c : DEFAULT_CATEGORY;
+}
+
+function normalizeLines(lines) {
+  lines.forEach((l) => { l.category = validCategory(l.category); });
+  return lines;
+}
+
+// Re-clé le catalogue par type + nom (une terrine « Canard » n'est pas un
+// saucisson « Canard », et n'a pas le même grammage).
+function normalizeCatalog(catalog) {
+  const out = {};
+  Object.values(catalog || {}).forEach((p) => {
+    if (!p || !p.name || !(p.weight > 0)) return;
+    const category = validCategory(p.category);
+    out[catalogKey(p.name, category)] = { name: p.name, weight: p.weight, category };
+  });
+  return out;
+}
+
 function loadState() {
   const base = {
     draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ';',
-    settings: { ...DEFAULT_SETTINGS }, lastBackupAt: null,
+    settings: { ...DEFAULT_SETTINGS }, lastBackupAt: null, lastCategory: DEFAULT_CATEGORY,
   };
   try {
     localStorage.removeItem('saucisson-state-v1'); // ancienne version "jeu", plus utilisée
@@ -43,6 +75,10 @@ function loadState() {
       settings: { ...DEFAULT_SETTINGS, ...(s.settings && typeof s.settings === 'object' ? s.settings : {}) },
       lastBackupAt: s.lastBackupAt || null,
     };
+    normalizeLines(loaded.draft.lines);
+    loaded.receptions.forEach((r) => normalizeLines(Array.isArray(r.lines) ? r.lines : (r.lines = [])));
+    loaded.catalog = normalizeCatalog(loaded.catalog);
+    loaded.lastCategory = validCategory(s.lastCategory);
     // Adresse de Notorious PIG par défaut si aucune n'a été saisie.
     if (!loaded.settings.email) loaded.settings.email = DEFAULT_EMAIL;
     return loaded;
@@ -94,8 +130,8 @@ function normName(name) {
   return name.trim().replace(/\s+/g, ' ');
 }
 
-function catalogKey(name) {
-  return normName(name).toLocaleLowerCase('fr-FR');
+function catalogKey(name, category) {
+  return `${validCategory(category)}|${normName(name).toLocaleLowerCase('fr-FR')}`;
 }
 
 function el(tag, props = {}, ...children) {
@@ -155,7 +191,7 @@ function renderLines() {
   $('lines').replaceChildren(...lines.map((l) => {
     const main = el('button', { className: 'line-main', type: 'button' },
       el('span', { className: 'line-name', textContent: l.product }),
-      el('span', { className: 'line-meta', textContent: `${l.weight} g/pièce · ${formatKg(lineKg(l))}` }));
+      el('span', { className: 'line-meta', textContent: `${l.category} · ${l.weight} g/pièce · ${formatKg(lineKg(l))}` }));
     main.addEventListener('click', () => startEditLine(l.id));
 
     const del = el('button', { className: 'del-btn', type: 'button', ariaLabel: `Supprimer ${l.product}` });
@@ -173,11 +209,44 @@ function renderLines() {
   $('totals').hidden = lines.length === 0;
   $('tot-pieces').textContent = t.pieces;
   $('tot-weight').textContent = formatKg(t.kg);
+  $('tot-cats').textContent = categorySummary(lines);
   $('btn-validate').disabled = lines.length === 0;
 }
 
+// "Saucisson : 23 pcs · Terrine : 5 pcs" (rien s'il n'y a qu'un seul type).
+function categorySummary(lines) {
+  const byCat = CATEGORIES
+    .map((c) => ({ c, pieces: lines.filter((l) => l.category === c).reduce((sum, l) => sum + l.pieces, 0) }))
+    .filter((x) => x.pieces > 0);
+  return byCat.length > 1 ? byCat.map((x) => `${x.c} : ${x.pieces} pcs`).join(' · ') : '';
+}
+
+function renderCategoryChips() {
+  $('cat-chips').replaceChildren(...CATEGORIES.map((c) => {
+    const chip = el('button', { type: 'button', className: 'chip', textContent: c });
+    chip.setAttribute('role', 'radio');
+    chip.setAttribute('aria-checked', String(c === selectedCategory));
+    chip.addEventListener('click', () => selectCategory(c));
+    return chip;
+  }));
+  $('in-product').placeholder = PLACEHOLDERS[selectedCategory];
+}
+
+function selectCategory(c) {
+  selectedCategory = validCategory(c);
+  if (!editingLineId) {
+    state.lastCategory = selectedCategory;
+    saveState();
+  }
+  renderCategoryChips();
+  renderDatalists();
+  prefillWeight();
+}
+
 function renderDatalists() {
-  const products = Object.values(state.catalog).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const products = Object.values(state.catalog)
+    .filter((p) => p.category === selectedCategory)
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   $('dl-products').replaceChildren(...products.map((p) => el('option', { value: p.name, label: `${p.weight} g` })));
   $('dl-suppliers').replaceChildren(...state.suppliers.map((s) => el('option', { value: s })));
 }
@@ -216,7 +285,7 @@ function renderHistory() {
         el('th', { textContent: 'Produit' }), el('th', { className: 'num', textContent: 'Pcs' }),
         el('th', { className: 'num', textContent: 'g/pc' }), el('th', { className: 'num', textContent: 'Total' }))),
       el('tbody', {}, ...r.lines.map((l) => el('tr', {},
-        el('td', { textContent: l.product }),
+        el('td', {}, el('span', { className: 'td-cat', textContent: l.category }), l.product),
         el('td', { className: 'num', textContent: l.pieces }),
         el('td', { className: 'num', textContent: l.weight }),
         el('td', { className: 'num', textContent: formatKg(lineKg(l)) })))));
@@ -253,15 +322,22 @@ function renderHistory() {
 }
 
 function renderCatalog() {
-  const products = Object.values(state.catalog).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const products = Object.values(state.catalog);
   $('catalog-empty').hidden = products.length > 0;
-  $('catalog').replaceChildren(...products.map((p) => {
-    const btn = el('button', { type: 'button' },
-      el('span', { className: 'c-name', textContent: p.name }),
-      el('span', { className: 'c-weight', textContent: `${p.weight} g` }));
-    btn.addEventListener('click', () => openProductDialog(p));
-    return el('li', {}, btn);
-  }));
+  const items = [];
+  CATEGORIES.forEach((c) => {
+    const inCat = products.filter((p) => p.category === c).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    if (!inCat.length) return;
+    items.push(el('li', { className: 'c-group', textContent: c }));
+    inCat.forEach((p) => {
+      const btn = el('button', { type: 'button' },
+        el('span', { className: 'c-name', textContent: p.name }),
+        el('span', { className: 'c-weight', textContent: `${p.weight} g` }));
+      btn.addEventListener('click', () => openProductDialog(p));
+      items.push(el('li', {}, btn));
+    });
+  });
+  $('catalog').replaceChildren(...items);
 }
 
 function renderAll() {
@@ -273,8 +349,11 @@ function renderAll() {
 
 // ---------------------------------------------------------------- saisie d'une ligne
 
+let selectedCategory = state.lastCategory;
+
 function readForm() {
   return {
+    category: selectedCategory,
     product: normName($('in-product').value),
     pieces: parseInt($('in-pieces').value, 10),
     weight: parseInt($('in-weight').value, 10),
@@ -296,6 +375,9 @@ function resetForm() {
   $('form-line-title').textContent = 'Ajouter un produit';
   $('btn-add-line').textContent = 'Ajouter la ligne';
   $('btn-cancel-edit').hidden = true;
+  selectedCategory = state.lastCategory;
+  renderCategoryChips();
+  renderDatalists();
   updatePreview();
 }
 
@@ -303,6 +385,9 @@ function startEditLine(id) {
   const l = state.draft.lines.find((x) => x.id === id);
   if (!l) return;
   editingLineId = id;
+  selectedCategory = l.category;
+  renderCategoryChips();
+  renderDatalists();
   $('in-product').value = l.product;
   $('in-pieces').value = l.pieces;
   $('in-weight').value = l.weight;
@@ -315,10 +400,10 @@ function startEditLine(id) {
 }
 
 // Garde l'orthographe déjà connue ("rosette de lyon" ne remplace pas "Rosette de Lyon").
-function rememberProduct(name, weight) {
-  const key = catalogKey(name);
+function rememberProduct(name, weight, category) {
+  const key = catalogKey(name, category);
   const known = state.catalog[key];
-  state.catalog[key] = { name: known ? known.name : name, weight };
+  state.catalog[key] = { name: known ? known.name : name, weight, category: validCategory(category) };
 }
 
 function rememberSupplier(name) {
@@ -342,7 +427,7 @@ $('form-line').addEventListener('submit', (e) => {
     toast('Ligne modifiée');
   } else {
     // Même produit au même grammage : on cumule plutôt que dupliquer la ligne.
-    const same = lines.find((l) => catalogKey(l.product) === catalogKey(f.product) && l.weight === f.weight);
+    const same = lines.find((l) => catalogKey(l.product, l.category) === catalogKey(f.product, f.category) && l.weight === f.weight);
     if (same) {
       same.pieces += f.pieces;
       toast(`${same.product} : ${same.pieces} pièces au total`);
@@ -350,7 +435,7 @@ $('form-line').addEventListener('submit', (e) => {
       lines.push({ id: uid(), ...f });
     }
   }
-  rememberProduct(f.product, f.weight);
+  rememberProduct(f.product, f.weight, f.category);
   saveState();
   resetForm();
   renderLines();
@@ -362,11 +447,12 @@ $('form-line').addEventListener('submit', (e) => {
 $('btn-cancel-edit').addEventListener('click', () => { resetForm(); renderLines(); });
 
 // Choisir un produit connu pré-remplit son grammage habituel.
-$('in-product').addEventListener('input', () => {
-  const known = state.catalog[catalogKey($('in-product').value)];
+function prefillWeight() {
+  const known = state.catalog[catalogKey($('in-product').value, selectedCategory)];
   if (known && !editingLineId) $('in-weight').value = known.weight;
   updatePreview();
-});
+}
+$('in-product').addEventListener('input', prefillWeight);
 $('in-pieces').addEventListener('input', updatePreview);
 $('in-weight').addEventListener('input', updatePreview);
 
@@ -429,7 +515,7 @@ $('btn-validate').addEventListener('click', () => {
     date,
     supplier: normName($('in-supplier').value),
     bl: normName($('in-bl').value),
-    lines: d.lines.map(({ product, pieces, weight }) => ({ product, pieces, weight })),
+    lines: d.lines.map(({ category, product, pieces, weight }) => ({ category, product, pieces, weight })),
     createdAt: Date.now(),
     exportedAt: null,
   };
@@ -477,8 +563,8 @@ async function deleteReception(id) {
 // Deux formats : "Excel" (point-virgule) lisible en français — dates
 // JJ/MM/AAAA, virgule décimale, en-têtes avec unités — et "base de données"
 // (virgule) technique — dates AAAA-MM-JJ, point décimal, en-têtes codés.
-const CSV_COLUMNS = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
-const CSV_COLUMNS_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
+const CSV_COLUMNS = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'categorie', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
+const CSV_COLUMNS_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Type', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
 
 function frDate(iso) {
   const [y, m, d] = iso.split('-');
@@ -501,8 +587,8 @@ function buildCsv(receptions) {
     r.lines.forEach((l) => {
       const kg = Math.round(lineKg(l) * 1000) / 1000;
       rows.push(excel
-        ? [r.id, frDate(r.date), r.supplier, r.bl, l.product, l.pieces, l.weight, nfCsvFr.format(kg)]
-        : [r.id, r.date, r.supplier, r.bl, l.product, l.pieces, l.weight, kg.toFixed(3)]);
+        ? [r.id, frDate(r.date), r.supplier, r.bl, l.category, l.product, l.pieces, l.weight, nfCsvFr.format(kg)]
+        : [r.id, r.date, r.supplier, r.bl, l.category, l.product, l.pieces, l.weight, kg.toFixed(3)]);
     });
   });
   // BOM UTF-8 : sans lui, Excel affiche mal les accents (« JÃ©sus »).
@@ -607,8 +693,11 @@ function receptionSummary(r) {
     `N° bon de livraison : ${r.bl || '-'}`,
     `Référence : ${r.id}`,
     '',
-    ...r.lines.map((l) => `- ${l.product} : ${l.pieces} pcs × ${l.weight} g = ${formatKg(lineKg(l))}`),
-    '',
+    ...CATEGORIES.flatMap((c) => {
+      const inCat = r.lines.filter((l) => l.category === c);
+      if (!inCat.length) return [];
+      return [`${c} :`, ...inCat.map((l) => `- ${l.product} : ${l.pieces} pcs × ${l.weight} g = ${formatKg(lineKg(l))}`), ''];
+    }),
     `Total : ${t.pieces} ${plural(t.pieces, 'pièce')}, ${formatKg(t.kg)}`,
   ].join('\n');
 }
@@ -656,7 +745,8 @@ async function sendToServer(receptions, { manual = false } = {}) {
   try {
     const res = await postToServer({
       cle: serverKey,
-      receptions: receptions.map(({ id, date, supplier, bl, lines, createdAt }) => ({ id, date, supplier, bl, lines, createdAt })),
+      receptions: receptions.map(({ id, date, supplier, bl, lines, createdAt }) => ({ id, date, supplier, bl, createdAt,
+        lines: lines.map(({ category, product, pieces, weight }) => ({ category, product, pieces, weight })) })),
     });
     const now = Date.now();
     (res.recues || []).forEach((id) => {
@@ -768,7 +858,8 @@ async function restoreBackup(file) {
   }
   const known = new Set(state.receptions.map((r) => r.id));
   const newReceptions = data.receptions.filter((r) => r && r.id && Array.isArray(r.lines) && !known.has(r.id));
-  const catalog = data.catalog && typeof data.catalog === 'object' ? data.catalog : {};
+  newReceptions.forEach((r) => normalizeLines(r.lines));
+  const catalog = normalizeCatalog(data.catalog && typeof data.catalog === 'object' ? data.catalog : {});
   const newProducts = Object.keys(catalog).filter((k) => !state.catalog[k]);
 
   if (!newReceptions.length && !newProducts.length) {
@@ -840,7 +931,8 @@ $('dlg-settings').addEventListener('close', () => {
 
 let editingProductKey = null;
 function openProductDialog(p) {
-  editingProductKey = catalogKey(p.name);
+  editingProductKey = catalogKey(p.name, p.category);
+  $('in-cat-category').value = p.category;
   $('in-cat-name').value = p.name;
   $('in-cat-weight').value = p.weight;
   $('dlg-product').showModal();
@@ -855,7 +947,7 @@ $('dlg-product').addEventListener('close', () => {
     const weight = parseInt($('in-cat-weight').value, 10);
     if (!name || !(weight > 0)) return;
     delete state.catalog[editingProductKey];
-    rememberProduct(name, weight);
+    rememberProduct(name, weight, $('in-cat-category').value);
   } else {
     return;
   }

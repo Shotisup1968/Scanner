@@ -1,7 +1,7 @@
 {
   "name": "Saucisson — Réception stock",
   "short_name": "Saucisson",
-  "description": "Saisie des réceptions de stock de saucissons (nom, pièces, grammage) et export CSV pour la base de données.",
+  "description": "Saisie des réceptions de stock (saucissons, fuets, noix d’épaule, terrines, rillettes : pièces, grammage) et export CSV pour la base de données.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

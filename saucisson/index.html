@@ -46,8 +46,12 @@
 
     <form class="card" id="form-line" autocomplete="off">
       <h2 id="form-line-title">Ajouter un produit</h2>
-      <label>Nom du saucisson
-        <input type="text" id="in-product" list="dl-products" placeholder="ex. Rosette de Lyon" required>
+      <div class="field">
+        <span class="field-label">Type de produit</span>
+        <div class="chips" id="cat-chips" role="radiogroup" aria-label="Type de produit"></div>
+      </div>
+      <label>Nom du produit
+        <input type="text" id="in-product" list="dl-products" placeholder="ex. Piment fort" required>
       </label>
       <datalist id="dl-products"></datalist>
 
@@ -82,6 +86,7 @@
       <div class="totals" id="totals" hidden>
         <div><span>Total pièces</span><strong id="tot-pieces">0</strong></div>
         <div><span>Poids total</span><strong id="tot-weight">0 kg</strong></div>
+        <p class="muted small tot-cats" id="tot-cats"></p>
       </div>
     </div>
 
@@ -100,7 +105,7 @@
 
   <!-- ============================================================ PRODUITS -->
   <section id="view-products" class="view">
-    <p class="muted small">Catalogue des saucissons déjà reçus. Le grammage habituel est pré-rempli à la saisie. Il se complète tout seul à chaque réception.</p>
+    <p class="muted small">Catalogue des produits déjà reçus, par type. Le grammage habituel est pré-rempli à la saisie. Il se complète tout seul à chaque réception.</p>
     <ul id="catalog" class="catalog"></ul>
     <p id="catalog-empty" class="muted">Le catalogue est vide.</p>
   </section>
@@ -179,6 +184,15 @@
 <dialog id="dlg-product">
   <form method="dialog">
     <h2>Modifier le produit</h2>
+    <label>Type
+      <select id="in-cat-category">
+        <option>Saucisson</option>
+        <option>Fuet</option>
+        <option>Noix d'épaule</option>
+        <option>Terrine</option>
+        <option>Rillettes</option>
+      </select>
+    </label>
     <label>Nom
       <input type="text" id="in-cat-name" maxlength="80" autocomplete="off">
     </label>

@@ -106,14 +106,14 @@ saucissons et les envoyer dans la base de données. Servie sur
 même façon (Safari → « Sur l'écran d'accueil »).
 
 - **Réception** : date, fournisseur, n° de bon de livraison, puis une ligne par
-  produit : nom du saucisson, nombre de pièces, grammage par pièce (le poids
-  total est calculé). Un produit déjà connu pré-remplit son grammage habituel ;
+  produit : type (Saucisson, Fuet, Noix d'épaule, Terrine, Rillettes), nom,
+  nombre de pièces, grammage par pièce (le poids total est calculé). Un produit déjà connu pré-remplit son grammage habituel ;
   le même produit au même grammage est cumulé sur une seule ligne.
 - **Valider et exporter** : la réception est archivée et la feuille de partage
   iOS s'ouvre directement avec le fichier CSV (Mail, Drive, Fichiers…).
 - **Historique** : chaque réception est marquée « à exporter » / « exporté » ;
   un bouton exporte en un seul fichier toutes celles en attente.
-- **Produits** : catalogue des saucissons avec leur grammage habituel.
+- **Produits** : catalogue des produits, par type, avec leur grammage habituel.
 - **Envoi par mail** : avec une adresse dans les réglages, la validation ouvre
   Mail avec le destinataire, l'objet et le détail déjà remplis (un appui sur
   « Envoyer »).
@@ -132,15 +132,15 @@ dans les réglages :
   JJ/MM/AAAA, virgule décimale, unités dans les en-têtes
 
   ```
-  Réf. réception;Date;Fournisseur;N° bon de livraison;Produit;Pièces;Grammage (g);Poids total (kg)
-  R20261024-01-K3F9;24/10/2026;Val d'Allier;1;Pur porc;34;170;5,78
+  Réf. réception;Date;Fournisseur;N° bon de livraison;Type;Produit;Pièces;Grammage (g);Poids total (kg)
+  R20261024-01-K3F9;24/10/2026;Val d'Allier;1;Saucisson;Pur porc;34;170;5,78
   ```
 
 - **Import base de données / Notion** : virgule, format technique
 
   ```
-  reception_id,date_reception,fournisseur,bon_livraison,produit,pieces,grammage_g,poids_total_kg
-  R20261024-01-K3F9,2026-10-24,Val d'Allier,1,Pur porc,34,170,5.780
+  reception_id,date_reception,fournisseur,bon_livraison,categorie,produit,pieces,grammage_g,poids_total_kg
+  R20261024-01-K3F9,2026-10-24,Val d'Allier,1,Saucisson,Pur porc,34,170,5.780
   ```
 
 ## Confidentialité
