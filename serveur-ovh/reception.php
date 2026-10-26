@@ -14,8 +14,9 @@ header('Content-Type: application/json; charset=utf-8');
 
 // Journal : format technique (future base de données). Pièce jointe du
 // mail : format lisible dans Excel/Numbers en français.
-const COLONNES = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
-const COLONNES_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
+const COLONNES = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'categorie', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
+const COLONNES_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Type', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
+const TYPES = ['Saucisson', 'Fuet', "Noix d'épaule", 'Terrine', 'Rillettes'];
 
 function repondre(int $code, array $donnees): void
 {
@@ -48,8 +49,9 @@ function valider_reception($r): ?array
         $produit = texte($l['product'] ?? '', 120);
         $pieces = filter_var($l['pieces'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 1000000]]);
         $grammage = filter_var($l['weight'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 1000000]]);
-        if ($produit === '' || $pieces === false || $grammage === false) return null;
-        $propres[] = ['produit' => $produit, 'pieces' => $pieces, 'grammage' => $grammage];
+        $type = (string) ($l['category'] ?? 'Saucisson');
+        if ($produit === '' || $pieces === false || $grammage === false || !in_array($type, TYPES, true)) return null;
+        $propres[] = ['type' => $type, 'produit' => $produit, 'pieces' => $pieces, 'grammage' => $grammage];
     }
     return [
         'id' => $id,
@@ -64,7 +66,7 @@ function lignes_csv(array $r): array
 {
     $rows = [];
     foreach ($r['lignes'] as $l) {
-        $rows[] = [$r['id'], $r['date'], $r['fournisseur'], $r['bl'], $l['produit'], $l['pieces'], $l['grammage'],
+        $rows[] = [$r['id'], $r['date'], $r['fournisseur'], $r['bl'], $l['type'], $l['produit'], $l['pieces'], $l['grammage'],
             number_format($l['pieces'] * $l['grammage'] / 1000, 3, '.', '')];
     }
     return $rows;
@@ -86,7 +88,7 @@ function lignes_fr(array $rows): array
 {
     return array_map(function ($row) {
         $row[1] = date_fr($row[1]);
-        $row[7] = kg_fr($row[7]);
+        $row[8] = kg_fr($row[8]);
         return $row;
     }, $rows);
 }
@@ -145,12 +147,17 @@ function envoyer_mail(array $config, array $receptions, array $rows): bool
         $corps[] = 'N° bon de livraison : ' . ($r['bl'] !== '' ? $r['bl'] : '-');
         $corps[] = 'Référence : ' . $r['id'];
         $corps[] = '';
-        foreach ($r['lignes'] as $l) {
-            $poids = $l['pieces'] * $l['grammage'] / 1000;
-            $pieces += $l['pieces']; $kg += $poids;
-            $corps[] = '- ' . $l['produit'] . ' : ' . $l['pieces'] . ' pcs x ' . $l['grammage'] . ' g = ' . str_replace('.', ',', (string) round($poids, 3)) . ' kg';
+        foreach (TYPES as $type) {
+            $duType = array_filter($r['lignes'], fn($l) => $l['type'] === $type);
+            if (!$duType) continue;
+            $corps[] = $type . ' :';
+            foreach ($duType as $l) {
+                $poids = $l['pieces'] * $l['grammage'] / 1000;
+                $pieces += $l['pieces']; $kg += $poids;
+                $corps[] = '- ' . $l['produit'] . ' : ' . $l['pieces'] . ' pcs x ' . $l['grammage'] . ' g = ' . str_replace('.', ',', (string) round($poids, 3)) . ' kg';
+            }
+            $corps[] = '';
         }
-        $corps[] = '';
         $corps[] = 'Total : ' . $pieces . ' pièces, ' . str_replace('.', ',', (string) round($kg, 3)) . ' kg';
         $corps[] = '----------';
     }
