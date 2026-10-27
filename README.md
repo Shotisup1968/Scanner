@@ -114,6 +114,11 @@ même façon (Safari → « Sur l'écran d'accueil »).
 - **Historique** : chaque réception est marquée « à exporter » / « exporté » ;
   un bouton exporte en un seul fichier toutes celles en attente.
 - **Produits** : catalogue des produits, par type, avec leur grammage habituel.
+- **Référence** : chaque réception porte une référence lisible qui indique
+  l'appli et le téléphone, ex. `SAUCISSON-GSM1-27-10-2026-01` (téléphone n°1,
+  1re réception du jour). Le numéro du téléphone se règle dans les réglages
+  (1, 2 pour l'associé, 3 et suivants pour les employés) et apparaît aussi
+  dans l'objet des mails : `[SAUCISSON GSM1] Réception 27/10/2026 - …`.
 - **Envoi par mail** : avec une adresse dans les réglages, la validation ouvre
   Mail avec le destinataire, l'objet et le détail déjà remplis (un appui sur
   « Envoyer »).
@@ -133,14 +138,14 @@ dans les réglages :
 
   ```
   Réf. réception;Date;Fournisseur;N° bon de livraison;Type;Produit;Pièces;Grammage (g);Poids total (kg)
-  R20261024-01-K3F9;24/10/2026;Val d'Allier;1;Saucisson;Pur porc;34;170;5,78
+  SAUCISSON-GSM1-24-10-2026-01;24/10/2026;Val d'Allier;1;Saucisson;Pur porc;34;170;5,78
   ```
 
 - **Import base de données / Notion** : virgule, format technique
 
   ```
   reception_id,date_reception,fournisseur,bon_livraison,categorie,produit,pieces,grammage_g,poids_total_kg
-  R20261024-01-K3F9,2026-10-24,Val d'Allier,1,Saucisson,Pur porc,34,170,5.780
+  SAUCISSON-GSM1-24-10-2026-01,2026-10-24,Val d'Allier,1,Saucisson,Pur porc,34,170,5.780
   ```
 
 ## Confidentialité
