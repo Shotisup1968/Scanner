@@ -1,7 +1,7 @@
 # Envoi automatique des réceptions (hébergement OVH)
 
 Ce dossier contient le petit programme à installer sur votre hébergement OVH
-pour que l'appli Saucisson envoie chaque réception **par mail, toute seule**,
+pour que l'appli Notorious Pig Check Delivery envoie chaque réception **par mail, toute seule**,
 avec le fichier CSV en pièce jointe. Il garde aussi un **journal de toutes les
 réceptions** (`receptions-journal.csv`, s'ouvre dans Excel) et c'est lui qui,
 le jour où la base de données existera, y enregistrera les réceptions
@@ -29,5 +29,7 @@ le jour où la base de données existera, y enregistrera les réceptions
   automatiquement dès que le réseau revient.
 - Une réception renvoyée deux fois ne déclenche pas de second mail (le
   journal sert de mémoire).
+- Le mail affiche le prénom de l'utilisateur comme expéditeur et « Répondre »
+  va à son adresse ; l'adresse d'envoi reste celle du domaine (exigence OVH).
 - Nécessite PHP 7.4 ou plus récent (version par défaut des hébergements OVH
   actuels) et la fonction `mail()`, active par défaut chez OVH.
