@@ -127,6 +127,8 @@ même façon (Safari → « Sur l'écran d'accueil »).
   sur l'hébergement OVH, chaque réception part toute seule par mail (CSV en
   pièce jointe) et s'ajoute à un journal ; hors-ligne, l'envoi est retenté
   automatiquement. Installation : voir `serveur-ovh/LISEZMOI.md`.
+- **Sauvegarde mensuelle** : chaque mois, un rappel d'un appui à l'ouverture de
+  l'appli (ou envoi automatique par mail si le script OVH est installé).
 - **Sauvegarde / restauration** : un fichier avec tout le contenu de l'appli,
   pour tout récupérer sur un autre téléphone ou après suppression de l'icône.
   L'appli demande aussi à l'iPhone de ne pas effacer ses données.

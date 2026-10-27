@@ -205,6 +205,32 @@ function envoyer_mail(array $config, array $receptions, array $rows): bool
     return mail($config['destinataire'], entete_utf8($sujet), $message, $entetes, '-f' . $config['expediteur']);
 }
 
+// Sauvegarde mensuelle de l'appli : le fichier JSON part en pièce jointe vers la
+// boîte de l'entreprise (même fichier que le bouton « Sauvegarder » de l'appli).
+function envoyer_sauvegarde(array $config, string $json): bool
+{
+    $nom = 'NPCD-sauvegarde-' . date('Y-m-d') . '.json';
+    $frontiere = 'saucisson-' . bin2hex(random_bytes(12));
+    $entetes = implode("\r\n", [
+        'From: ' . entete_utf8('Check Delivery - Sauvegarde') . ' <' . $config['expediteur'] . '>',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/mixed; boundary="' . $frontiere . '"',
+    ]);
+    $texte = "Sauvegarde mensuelle de l'appli Notorious Pig Check Delivery.\r\n"
+        . "Pour restaurer : Réglages > Restaurer une sauvegarde, puis choisir ce fichier.";
+    $message = "--$frontiere\r\n"
+        . "Content-Type: text/plain; charset=UTF-8\r\n"
+        . "Content-Transfer-Encoding: base64\r\n\r\n"
+        . chunk_split(base64_encode($texte))
+        . "--$frontiere\r\n"
+        . "Content-Type: application/json; name=\"$nom\"\r\n"
+        . "Content-Transfer-Encoding: base64\r\n"
+        . "Content-Disposition: attachment; filename=\"$nom\"\r\n\r\n"
+        . chunk_split(base64_encode($json))
+        . "--$frontiere--\r\n";
+    return mail($config['destinataire'], entete_utf8('[Check Delivery - Sauvegarde] ' . date('d/m/Y')), $message, $entetes, '-f' . $config['expediteur']);
+}
+
 // Emplacement prévu pour la future base de données (MySQL OVH, Notion…).
 function enregistrer_en_base(array $receptions): void
 {
@@ -221,13 +247,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     repondre(405, ['ok' => false, 'erreur' => 'méthode non autorisée']);
 }
 
-$brut = file_get_contents('php://input', false, null, 0, 500000);
+$brut = file_get_contents('php://input', false, null, 0, 3000000);
 $donnees = json_decode((string) $brut, true);
 if (!is_array($donnees) || !is_string($donnees['cle'] ?? null) || !hash_equals($config['cle'], $donnees['cle'])) {
     repondre(403, ['ok' => false, 'erreur' => 'clé secrète incorrecte']);
 }
 if (!empty($donnees['test'])) {
     repondre(200, ['ok' => true, 'test' => true]);
+}
+
+if (isset($donnees['sauvegarde'])) {
+    $sauvegarde = $donnees['sauvegarde'];
+    if (!is_array($sauvegarde) || ($sauvegarde['app'] ?? '') !== 'saucisson-reception' || !is_array($sauvegarde['receptions'] ?? null)) {
+        repondre(400, ['ok' => false, 'erreur' => 'sauvegarde invalide']);
+    }
+    $json = json_encode($sauvegarde, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    if (!envoyer_sauvegarde($config, $json)) {
+        repondre(500, ['ok' => false, 'erreur' => 'le mail n\'a pas pu partir']);
+    }
+    repondre(200, ['ok' => true, 'sauvegarde' => true]);
 }
 
 $entrees = $donnees['receptions'] ?? null;

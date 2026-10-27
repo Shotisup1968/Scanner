@@ -71,7 +71,7 @@ function loadState() {
   const base = {
     draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ';',
     settings: { ...DEFAULT_SETTINGS }, lastBackupAt: null, lastCategory: DEFAULT_CATEGORY,
-    users: [], activeUserId: null,
+    users: [], activeUserId: null, firstUseAt: Date.now(), backupSnoozedUntil: 0,
   };
   try {
     localStorage.removeItem('saucisson-state-v1'); // ancienne version "jeu", plus utilisée
@@ -92,6 +92,8 @@ function loadState() {
     loaded.catalog = normalizeCatalog(loaded.catalog);
     loaded.lastCategory = validCategory(s.lastCategory);
     delete loaded.settings.deviceNumber; // remplacé par les utilisateurs
+    loaded.firstUseAt = s.firstUseAt || Date.now();
+    loaded.backupSnoozedUntil = s.backupSnoozedUntil || 0;
     loaded.users = normalizeUsers(s.users);
     loaded.activeUserId = loaded.users.some((u) => u.id === s.activeUserId) ? s.activeUserId : (loaded.users[0] || {}).id || null;
     // Adresse de Notorious PIG par défaut si aucune n'a été saisie.
@@ -856,8 +858,8 @@ function renderBackupInfo() {
     : 'Aucune sauvegarde pour l\'instant.';
 }
 
-async function saveBackup() {
-  const data = {
+function buildBackup() {
+  return {
     app: BACKUP_APP,
     version: 1,
     savedAt: new Date().toISOString(),
@@ -868,6 +870,10 @@ async function saveBackup() {
     settings: { email: state.settings.email, serverUrl: state.settings.serverUrl }, // pas la clé secrète
     users: state.users,
   };
+}
+
+async function saveBackup() {
+  const data = buildBackup();
   const name = `saucisson-sauvegarde-${today()}.json`;
   const file = new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' });
 
@@ -893,6 +899,56 @@ async function saveBackup() {
   renderBackupInfo();
   toast('Sauvegarde créée : garde le fichier dans Fichiers, Drive ou un mail');
 }
+
+// ---------------------------------------------------------------- sauvegarde mensuelle
+
+const BACKUP_EVERY_MS = 30 * 24 * 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
+
+function hasDataToBackup() {
+  return state.receptions.length > 0 || Object.keys(state.catalog).length > 0;
+}
+
+function backupDue() {
+  const ref = state.lastBackupAt || state.firstUseAt;
+  return hasDataToBackup() && Date.now() - ref >= BACKUP_EVERY_MS && Date.now() >= state.backupSnoozedUntil;
+}
+
+// Avec le script OVH : la sauvegarde part toute seule par mail, sans rien
+// toucher. Sans lui, l'iPhone interdit d'écrire un fichier sans geste de
+// l'utilisateur : on affiche un rappel avec un seul bouton.
+async function monthlyBackup() {
+  if (!backupDue() || $('dlg-user').open) return;
+  if (state.settings.serverUrl && navigator.onLine) {
+    try {
+      await postToServer({ cle: state.settings.serverKey, sauvegarde: buildBackup() });
+      state.lastBackupAt = Date.now();
+      saveState();
+      renderBackupInfo();
+      toast('Sauvegarde mensuelle envoyée par mail');
+      return;
+    } catch {
+      // serveur injoignable : on bascule sur le rappel manuel
+    }
+  }
+  const ref = state.lastBackupAt || state.firstUseAt;
+  const days = Math.floor((Date.now() - ref) / DAY_MS);
+  $('backup-reminder-text').textContent = state.lastBackupAt
+    ? `La dernière sauvegarde date de ${days} jours. Un appui suffit pour en créer une nouvelle.`
+    : `Aucune sauvegarde n'a encore été faite (l'appli est utilisée depuis ${days} jours). Un appui suffit.`;
+  $('dlg-backup').showModal();
+}
+
+$('btn-backup-now').addEventListener('click', () => {
+  saveBackup(); // appelé directement dans le clic : iOS exige un geste pour ouvrir le partage
+  $('dlg-backup').close();
+});
+$('btn-backup-later').addEventListener('click', () => {
+  state.backupSnoozedUntil = Date.now() + DAY_MS;
+  saveState();
+  $('dlg-backup').close();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) monthlyBackup(); });
 
 // Restauration par fusion : rien de ce qui est déjà dans l'appli n'est effacé.
 async function restoreBackup(file) {
@@ -1095,6 +1151,7 @@ resetForm();
 updateValidateLabel();
 renderUserChip();
 if (!state.users.length) setTimeout(() => openUserDialog(null, { welcome: true }), 400);
+else setTimeout(monthlyBackup, 800);
 retryQueue();
 
 // Demande à l'iPhone de ne pas effacer les données de l'appli quand il
