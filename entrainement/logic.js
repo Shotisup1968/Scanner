@@ -73,7 +73,7 @@
     extension: 'Sur le ventre, décoller uniquement le buste de quelques centimètres.',
     obliques: 'Amener le coude vers le genou opposé en tournant le buste, en alternant.',
     mountain: 'En planche haute, ramener un genou vers la poitrine en alternant, lentement.',
-    birdDog: 'À quatre pattes, dos plat. Tendre en même temps un bras et la jambe opposée, tenir 1 à 2 secondes, revenir puis alterner.',
+    birdDog: 'À quatre pattes, tendre un bras et la jambe opposée, tenir 2-3 s.',
     etirPecs: 'Debout, avant-bras contre un mur ou un montant de porte. Tourner doucement le buste à l\'opposé jusqu\'à sentir l\'étirement. Respirer calmement.',
     enfant: 'À genoux, assis sur les talons, buste penché vers l\'avant, bras tendus devant soi, front vers le sol. Respirer lentement.',
     marche: 'Marche ou vélo à allure tranquille : tu dois pouvoir parler sans être essoufflé.',
