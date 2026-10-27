@@ -21,8 +21,9 @@ function emptyDraft() {
 
 // email : boîte qui reçoit les réceptions ; serverUrl/serverKey : script
 // d'envoi automatique hébergé chez OVH (voir serveur-ovh/).
-const DEFAULT_EMAIL = 'commandes@notoriouspig.eu';
-const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '' };
+// Aucune adresse dans le code (il est public) : celle qui reçoit les réceptions
+// est saisie à l'installation et ne reste que sur l'appareil.
+const DEFAULT_SETTINGS = { email: '', serverUrl: '', serverKey: '' };
 // Préfixe des références : Notorious Pig Check Delivery.
 const APP_CODE = 'NPCD';
 const APP_SHORT = 'Check Delivery';
@@ -96,8 +97,6 @@ function loadState() {
     loaded.backupSnoozedUntil = s.backupSnoozedUntil || 0;
     loaded.users = normalizeUsers(s.users);
     loaded.activeUserId = loaded.users.some((u) => u.id === s.activeUserId) ? s.activeUserId : (loaded.users[0] || {}).id || null;
-    // Adresse de Notorious PIG par défaut si aucune n'a été saisie.
-    if (!loaded.settings.email) loaded.settings.email = DEFAULT_EMAIL;
     return loaded;
   } catch {
     return base;
@@ -750,7 +749,7 @@ function receptionSummary(r) {
   ].join('\n');
 }
 
-// "[Check Delivery - Arnaud] Réception 27/10/2026 - Val d'Allier" : repérable
+// "[Check Delivery - Arnaud] Réception 27/10/2026 - Salaisons du Lot" : repérable
 // et triable dans la boîte mail.
 function mailSubject(receptions) {
   const who = receptions[0].user ? ` - ${receptions[0].user.firstName}` : '';
@@ -1109,6 +1108,9 @@ function openUserDialog(user, { welcome = false } = {}) {
   $('in-user-first').value = user ? user.firstName : '';
   $('in-user-email').value = user ? user.email : '';
   $('btn-delete-user').hidden = !user;
+  // L'adresse qui reçoit les réceptions n'est demandée que si elle manque.
+  $('wrap-dest').hidden = Boolean(state.settings.email);
+  $('in-dest').value = '';
   $('dlg-user').showModal();
 }
 
@@ -1123,6 +1125,12 @@ $('dlg-user').addEventListener('close', async () => {
     if (state.activeUserId === editingUserId) state.activeUserId = (state.users[0] || {}).id || null;
   } else if (action === 'ok') {
     if (!firstName) { toast('Le prénom est obligatoire.'); return; }
+    const dest = $('in-dest').value.trim();
+    if (!$('wrap-dest').hidden && dest) {
+      state.settings.email = dest;
+      updateValidateLabel();
+      renderHistory();
+    }
     const existing = state.users.find((x) => x.id === editingUserId);
     if (existing) {
       Object.assign(existing, { firstName, email });

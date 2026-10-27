@@ -7,11 +7,11 @@ return [
     'cle' => 'REMPLACER-PAR-UNE-LONGUE-CLE-SECRETE',
 
     // Boîte qui reçoit les réceptions.
-    'destinataire' => 'commandes@notoriouspig.eu',
+    'destinataire' => 'commandes@votre-domaine.fr',
 
     // Expéditeur : chez OVH il doit appartenir au domaine de l'hébergement
     // (sinon les mails partent en spam ou sont refusés).
-    'expediteur' => 'appli-stock@notoriouspig.eu',
+    'expediteur' => 'appli-stock@votre-domaine.fr',
 
     // Seule l'appli publiée sur GitHub Pages a le droit d'appeler le script.
     'origine_autorisee' => 'https://shotisup1968.github.io',

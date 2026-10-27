@@ -145,7 +145,7 @@ function entete_utf8(string $s): string
 function envoyer_mail(array $config, array $receptions, array $rows): bool
 {
     $premiere = $receptions[0];
-    // "[Check Delivery - Arnaud] Réception 27/10/2026 - Val d'Allier"
+    // "[Check Delivery - Arnaud] Réception 27/10/2026 - Salaisons du Lot"
     $tag = '[Check Delivery' . ($premiere['prenom'] !== '' ? ' - ' . $premiere['prenom'] : '') . '] ';
     $sujet = count($receptions) === 1
         ? $tag . 'Réception ' . date_fr($premiere['date']) . ($premiere['fournisseur'] !== '' ? ' - ' . $premiere['fournisseur'] : '')
