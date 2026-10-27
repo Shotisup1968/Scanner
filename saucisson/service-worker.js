@@ -1,14 +1,15 @@
 const CACHE_PREFIX = 'saucisson-cache-';
-const CACHE_NAME = CACHE_PREFIX + 'v7';
+const CACHE_NAME = CACHE_PREFIX + 'v8';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './style.css',
   './app.js',
-  './icons/icon.svg',
+  './icons/favicon-64.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/maskable-icon-512.png',
   './icons/apple-touch-icon.png',
 ];
 
