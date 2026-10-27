@@ -98,7 +98,7 @@ scripts/server.ps1        petit serveur local pour tester (voir plus haut)
 scripts/make-icons.ps1    génère les icônes dans icons/
 ```
 
-## Réception de stock saucissons (`saucisson/`)
+## Notorious Pig Check Delivery (`saucisson/`)
 
 Une seconde PWA, indépendante du Scanner, pour saisir les arrivages de
 saucissons et les envoyer dans la base de données. Servie sur
@@ -114,11 +114,12 @@ même façon (Safari → « Sur l'écran d'accueil »).
 - **Historique** : chaque réception est marquée « à exporter » / « exporté » ;
   un bouton exporte en un seul fichier toutes celles en attente.
 - **Produits** : catalogue des produits, par type, avec leur grammage habituel.
-- **Référence** : chaque réception porte une référence lisible qui indique
-  l'appli et le téléphone, ex. `SAUCISSON-GSM1-27-10-2026-01` (téléphone n°1,
-  1re réception du jour). Le numéro du téléphone se règle dans les réglages
-  (1, 2 pour l'associé, 3 et suivants pour les employés) et apparaît aussi
-  dans l'objet des mails : `[SAUCISSON GSM1] Réception 27/10/2026 - …`.
+- **Utilisateurs** : chaque personne s'enregistre avec son prénom et son
+  adresse mail (sans mot de passe) ; sur un appareil partagé, on choisit qui
+  saisit via le bouton en haut à droite.
+- **Référence** : appli + prénom + numéro qui se suit, ex. `NPCD-ARNAUD-001`
+  (NPCD = Notorious Pig Check Delivery). L'objet des mails commence par
+  `[Check Delivery - Arnaud]`, et le fichier contient une colonne « Saisi par ».
 - **Envoi par mail** : avec une adresse dans les réglages, la validation ouvre
   Mail avec le destinataire, l'objet et le détail déjà remplis (un appui sur
   « Envoyer »).
@@ -137,15 +138,15 @@ dans les réglages :
   JJ/MM/AAAA, virgule décimale, unités dans les en-têtes
 
   ```
-  Réf. réception;Date;Fournisseur;N° bon de livraison;Type;Produit;Pièces;Grammage (g);Poids total (kg)
-  SAUCISSON-GSM1-24-10-2026-01;24/10/2026;Val d'Allier;1;Saucisson;Pur porc;34;170;5,78
+  Réf. réception;Date;Saisi par;Fournisseur;N° bon de livraison;Type;Produit;Pièces;Grammage (g);Poids total (kg)
+  NPCD-ARNAUD-001;24/10/2026;Arnaud;Val d'Allier;1;Saucisson;Pur porc;34;170;5,78
   ```
 
 - **Import base de données / Notion** : virgule, format technique
 
   ```
-  reception_id,date_reception,fournisseur,bon_livraison,categorie,produit,pieces,grammage_g,poids_total_kg
-  SAUCISSON-GSM1-24-10-2026-01,2026-10-24,Val d'Allier,1,Saucisson,Pur porc,34,170,5.780
+  reception_id,date_reception,utilisateur,fournisseur,bon_livraison,categorie,produit,pieces,grammage_g,poids_total_kg
+  NPCD-ARNAUD-001,2026-10-24,Arnaud,Val d'Allier,1,Saucisson,Pur porc,34,170,5.780
   ```
 
 ## Confidentialité

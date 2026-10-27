@@ -1,6 +1,6 @@
 {
-  "name": "Saucisson — Réception stock",
-  "short_name": "Saucisson",
+  "name": "NOTORIOUS PIG CHECK DELIVERY",
+  "short_name": "NP Check Delivery",
   "description": "Saisie des réceptions de stock (saucissons, fuets, noix d’épaule, terrines, rillettes : pièces, grammage) et export CSV pour la base de données.",
   "start_url": "./index.html",
   "scope": "./",

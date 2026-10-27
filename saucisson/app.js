@@ -22,8 +22,10 @@ function emptyDraft() {
 // email : boîte qui reçoit les réceptions ; serverUrl/serverKey : script
 // d'envoi automatique hébergé chez OVH (voir serveur-ovh/).
 const DEFAULT_EMAIL = 'commandes@notoriouspig.eu';
-// deviceNumber : numéro de ce téléphone (GSM), 1 = premier appareil, 2 = l'associé…
-const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '', deviceNumber: 1 };
+const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '' };
+// Préfixe des références : Notorious Pig Check Delivery.
+const APP_CODE = 'NPCD';
+const APP_SHORT = 'Check Delivery';
 
 // Types de produits reçus. Les données d'avant leur ajout sont des saucissons.
 const CATEGORIES = ['Saucisson', 'Fuet', 'Noix d\'épaule', 'Terrine', 'Rillettes'];
@@ -57,10 +59,19 @@ function normalizeCatalog(catalog) {
   return out;
 }
 
+// Utilisateurs : prénom + adresse mail, sans mot de passe. Chacun a son
+// compteur de références (NPCD-ARNAUD-001, -002…).
+function normalizeUsers(users) {
+  return (Array.isArray(users) ? users : [])
+    .filter((u) => u && u.id && u.firstName)
+    .map((u) => ({ id: u.id, firstName: String(u.firstName), email: String(u.email || ''), lastSeq: parseInt(u.lastSeq, 10) || 0 }));
+}
+
 function loadState() {
   const base = {
     draft: emptyDraft(), receptions: [], catalog: {}, suppliers: [], separator: ';',
     settings: { ...DEFAULT_SETTINGS }, lastBackupAt: null, lastCategory: DEFAULT_CATEGORY,
+    users: [], activeUserId: null,
   };
   try {
     localStorage.removeItem('saucisson-state-v1'); // ancienne version "jeu", plus utilisée
@@ -80,7 +91,9 @@ function loadState() {
     loaded.receptions.forEach((r) => normalizeLines(Array.isArray(r.lines) ? r.lines : (r.lines = [])));
     loaded.catalog = normalizeCatalog(loaded.catalog);
     loaded.lastCategory = validCategory(s.lastCategory);
-    loaded.settings.deviceNumber = validDeviceNumber(loaded.settings.deviceNumber);
+    delete loaded.settings.deviceNumber; // remplacé par les utilisateurs
+    loaded.users = normalizeUsers(s.users);
+    loaded.activeUserId = loaded.users.some((u) => u.id === s.activeUserId) ? s.activeUserId : (loaded.users[0] || {}).id || null;
     // Adresse de Notorious PIG par défaut si aucune n'a été saisie.
     if (!loaded.settings.email) loaded.settings.email = DEFAULT_EMAIL;
     return loaded;
@@ -343,6 +356,7 @@ function renderCatalog() {
 }
 
 function renderAll() {
+  renderUserChip();
   renderDraft();
   renderDatalists();
   renderHistory();
@@ -495,24 +509,25 @@ $('btn-clear-draft').addEventListener('click', async () => {
 
 // ---------------------------------------------------------------- validation
 
-function validDeviceNumber(n) {
-  const v = parseInt(n, 10);
-  return v >= 1 && v <= 999 ? v : 1;
+function activeUser() {
+  return state.users.find((u) => u.id === state.activeUserId) || null;
 }
 
-function deviceTag() {
-  return `SAUCISSON-GSM${state.settings.deviceNumber}`;
+// "Hélène" -> "HELENE" pour la référence.
+function userCode(firstName) {
+  return firstName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'USER';
 }
 
-// Référence lisible : appli + téléphone + date + n° du jour sur ce téléphone,
-// ex. SAUCISSON-GSM1-27-10-2026-01. Le plus grand n° existant + 1, pour ne
-// jamais réutiliser un numéro après une suppression.
-function newReceptionId(date) {
-  const prefix = `${deviceTag()}-${frDate(date).replace(/\//g, '-')}-`;
+// Référence lisible : appli + prénom + numéro qui se suit, ex. NPCD-ARNAUD-001.
+// Le compteur est mémorisé par utilisateur : un numéro n'est jamais réutilisé,
+// même après une suppression dans l'historique.
+function newReceptionId(user) {
+  const prefix = `${APP_CODE}-${userCode(user.firstName)}-`;
   const max = state.receptions
     .filter((r) => r.id.startsWith(prefix))
-    .reduce((m, r) => Math.max(m, parseInt(r.id.slice(prefix.length), 10) || 0), 0);
-  return prefix + String(max + 1).padStart(2, '0');
+    .reduce((m, r) => Math.max(m, parseInt(r.id.slice(prefix.length), 10) || 0), user.lastSeq || 0);
+  user.lastSeq = max + 1;
+  return prefix + String(max + 1).padStart(3, '0');
 }
 
 $('btn-validate').addEventListener('click', () => {
@@ -526,9 +541,18 @@ $('btn-validate').addEventListener('click', () => {
     return;
   }
 
+  const user = activeUser();
+  if (!user) {
+    toast('Indique d\'abord qui fait la réception.');
+    openUserDialog(null);
+    return;
+  }
+
   const date = $('in-date').value || today();
   const reception = {
-    id: newReceptionId(date),
+    id: newReceptionId(user),
+    uid: uid(), // identifiant technique unique, pour éviter tout doublon côté serveur
+    user: { firstName: user.firstName, email: user.email },
     date,
     supplier: normName($('in-supplier').value),
     bl: normName($('in-bl').value),
@@ -580,8 +604,8 @@ async function deleteReception(id) {
 // Deux formats : "Excel" (point-virgule) lisible en français — dates
 // JJ/MM/AAAA, virgule décimale, en-têtes avec unités — et "base de données"
 // (virgule) technique — dates AAAA-MM-JJ, point décimal, en-têtes codés.
-const CSV_COLUMNS = ['reception_id', 'date_reception', 'fournisseur', 'bon_livraison', 'categorie', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
-const CSV_COLUMNS_FR = ['Réf. réception', 'Date', 'Fournisseur', 'N° bon de livraison', 'Type', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
+const CSV_COLUMNS = ['reception_id', 'date_reception', 'utilisateur', 'fournisseur', 'bon_livraison', 'categorie', 'produit', 'pieces', 'grammage_g', 'poids_total_kg'];
+const CSV_COLUMNS_FR = ['Réf. réception', 'Date', 'Saisi par', 'Fournisseur', 'N° bon de livraison', 'Type', 'Produit', 'Pièces', 'Grammage (g)', 'Poids total (kg)'];
 
 function frDate(iso) {
   const [y, m, d] = iso.split('-');
@@ -595,6 +619,10 @@ function csvField(value, sep) {
   return /["\r\n]/.test(s) || s.includes(sep) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function byName(r) {
+  return r.user ? r.user.firstName : '';
+}
+
 function buildCsv(receptions) {
   const sep = state.separator;
   const excel = sep === ';';
@@ -604,8 +632,8 @@ function buildCsv(receptions) {
     r.lines.forEach((l) => {
       const kg = Math.round(lineKg(l) * 1000) / 1000;
       rows.push(excel
-        ? [r.id, frDate(r.date), r.supplier, r.bl, l.category, l.product, l.pieces, l.weight, nfCsvFr.format(kg)]
-        : [r.id, r.date, r.supplier, r.bl, l.category, l.product, l.pieces, l.weight, kg.toFixed(3)]);
+        ? [r.id, frDate(r.date), byName(r), r.supplier, r.bl, l.category, l.product, l.pieces, l.weight, nfCsvFr.format(kg)]
+        : [r.id, r.date, byName(r), r.supplier, r.bl, l.category, l.product, l.pieces, l.weight, kg.toFixed(3)]);
     });
   });
   // BOM UTF-8 : sans lui, Excel affiche mal les accents (« JÃ©sus »).
@@ -621,7 +649,7 @@ function csvFileName(receptions) {
     const r = receptions[0];
     return `${r.id}${r.supplier ? '_' + slug(r.supplier) : ''}.csv`;
   }
-  return `${deviceTag()}_${receptions.length}-receptions_${frDate(today()).replace(/\//g, '-')}.csv`;
+  return `${APP_CODE}_${receptions.length}-receptions_${frDate(today()).replace(/\//g, '-')}.csv`;
 }
 
 function markExported(receptions) {
@@ -709,6 +737,7 @@ function receptionSummary(r) {
     `Fournisseur : ${r.supplier || 'non précisé'}`,
     `N° bon de livraison : ${r.bl || '-'}`,
     `Référence : ${r.id}`,
+    `Saisi par : ${r.user ? r.user.firstName + (r.user.email ? ' (' + r.user.email + ')' : '') : '-'}`,
     '',
     ...CATEGORIES.flatMap((c) => {
       const inCat = r.lines.filter((l) => l.category === c);
@@ -719,10 +748,11 @@ function receptionSummary(r) {
   ].join('\n');
 }
 
-// "[SAUCISSON GSM1] Réception 27/10/2026 - Val d'Allier" : repérable et
-// triable dans la boîte mail.
+// "[Check Delivery - Arnaud] Réception 27/10/2026 - Val d'Allier" : repérable
+// et triable dans la boîte mail.
 function mailSubject(receptions) {
-  const tag = `[${deviceTag().replace('-', ' ')}]`;
+  const who = receptions[0].user ? ` - ${receptions[0].user.firstName}` : '';
+  const tag = `[${APP_SHORT}${who}]`;
   if (receptions.length === 1) {
     const r = receptions[0];
     return `${tag} Réception ${frDate(r.date)}${r.supplier ? ' - ' + r.supplier : ''}`;
@@ -765,7 +795,7 @@ async function sendToServer(receptions, { manual = false } = {}) {
   try {
     const res = await postToServer({
       cle: serverKey,
-      receptions: receptions.map(({ id, date, supplier, bl, lines, createdAt }) => ({ id, date, supplier, bl, createdAt,
+      receptions: receptions.map(({ id, uid: ruid, user, date, supplier, bl, lines, createdAt }) => ({ id, uid: ruid, user, date, supplier, bl, createdAt,
         lines: lines.map(({ category, product, pieces, weight }) => ({ category, product, pieces, weight })) })),
     });
     const now = Date.now();
@@ -836,6 +866,7 @@ async function saveBackup() {
     suppliers: state.suppliers,
     separator: state.separator,
     settings: { email: state.settings.email, serverUrl: state.settings.serverUrl }, // pas la clé secrète
+    users: state.users,
   };
   const name = `saucisson-sauvegarde-${today()}.json`;
   const file = new File([JSON.stringify(data, null, 2)], name, { type: 'application/json' });
@@ -894,6 +925,12 @@ async function restoreBackup(file) {
   (Array.isArray(data.suppliers) ? data.suppliers : []).forEach((sup) => {
     if (!state.suppliers.includes(sup)) state.suppliers.push(sup);
   });
+  normalizeUsers(data.users).forEach((u) => {
+    const same = state.users.find((x) => x.id === u.id);
+    if (same) same.lastSeq = Math.max(same.lastSeq, u.lastSeq);
+    else state.users.push(u);
+  });
+  if (!state.activeUserId && state.users.length) state.activeUserId = state.users[0].id;
   if (data.settings) {
     if (!state.settings.email && data.settings.email) state.settings.email = data.settings.email;
     if (!state.settings.serverUrl && data.settings.serverUrl) state.settings.serverUrl = data.settings.serverUrl;
@@ -931,7 +968,6 @@ $('btn-test-server').addEventListener('click', async () => {
 $('btn-settings').addEventListener('click', () => {
   $('in-separator').value = state.separator;
   $('in-email').value = state.settings.email;
-  $('in-device').value = state.settings.deviceNumber;
   $('in-server-url').value = state.settings.serverUrl;
   $('in-server-key').value = state.settings.serverKey;
   renderBackupInfo();
@@ -941,7 +977,6 @@ $('dlg-settings').addEventListener('close', () => {
   if ($('dlg-settings').returnValue !== 'ok') return;
   state.separator = $('in-separator').value === ';' ? ';' : ',';
   state.settings.email = $('in-email').value.trim();
-  state.settings.deviceNumber = validDeviceNumber($('in-device').value);
   state.settings.serverUrl = $('in-server-url').value.trim();
   state.settings.serverKey = $('in-server-key').value.trim();
   saveState();
@@ -979,11 +1014,87 @@ $('dlg-product').addEventListener('close', () => {
   renderCatalog();
 });
 
+// ---------------------------------------------------------------- utilisateurs
+
+function renderUserChip() {
+  const u = activeUser();
+  $('user-name').textContent = u ? u.firstName : 'Qui ?';
+}
+
+function renderUsersList() {
+  $('users-list').replaceChildren(...state.users.map((u) => {
+    const pick = el('button', { type: 'button', className: 'user-pick' },
+      el('span', { className: 'user-first', textContent: u.firstName }),
+      el('span', { className: 'user-mail', textContent: u.email || 'pas d\'adresse' }));
+    pick.setAttribute('aria-pressed', String(u.id === state.activeUserId));
+    pick.addEventListener('click', () => {
+      state.activeUserId = u.id;
+      saveState();
+      renderUserChip();
+      $('dlg-users').close();
+      toast(`Réceptions saisies par ${u.firstName}`);
+    });
+    const edit = el('button', { type: 'button', className: 'text-btn', textContent: 'Modifier' });
+    edit.addEventListener('click', () => openUserDialog(u));
+    return el('li', {}, pick, edit);
+  }));
+  $('users-empty').hidden = state.users.length > 0;
+}
+
+function openUsersDialog() {
+  renderUsersList();
+  $('dlg-users').showModal();
+}
+
+let editingUserId = null;
+function openUserDialog(user, { welcome = false } = {}) {
+  editingUserId = user ? user.id : null;
+  $('dlg-user-title').textContent = welcome ? 'Bienvenue ! Qui utilise l\'appli ?' : (user ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur');
+  $('in-user-first').value = user ? user.firstName : '';
+  $('in-user-email').value = user ? user.email : '';
+  $('btn-delete-user').hidden = !user;
+  $('dlg-user').showModal();
+}
+
+$('dlg-user').addEventListener('close', async () => {
+  const action = $('dlg-user').returnValue;
+  const firstName = normName($('in-user-first').value);
+  const email = $('in-user-email').value.trim();
+  if (action === 'delete' && editingUserId) {
+    const u = state.users.find((x) => x.id === editingUserId);
+    if (!u || !(await ask(`Supprimer l'utilisateur ${u.firstName} ? Ses réceptions restent dans l'historique.`))) return;
+    state.users = state.users.filter((x) => x.id !== editingUserId);
+    if (state.activeUserId === editingUserId) state.activeUserId = (state.users[0] || {}).id || null;
+  } else if (action === 'ok') {
+    if (!firstName) { toast('Le prénom est obligatoire.'); return; }
+    const existing = state.users.find((x) => x.id === editingUserId);
+    if (existing) {
+      Object.assign(existing, { firstName, email });
+    } else {
+      const u = { id: uid(), firstName, email, lastSeq: 0 };
+      state.users.push(u);
+      state.activeUserId = u.id;
+      toast(`Bonjour ${firstName} !`);
+    }
+  } else {
+    return;
+  }
+  saveState();
+  renderUserChip();
+  if ($('dlg-users').open) renderUsersList();
+});
+
+$('btn-user').addEventListener('click', openUsersDialog);
+$('btn-add-user').addEventListener('click', () => openUserDialog(null));
+$('btn-settings-users').addEventListener('click', () => { $('dlg-settings').close(); openUsersDialog(); });
+
 // ---------------------------------------------------------------- démarrage
 
 renderAll();
 resetForm();
 updateValidateLabel();
+renderUserChip();
+if (!state.users.length) setTimeout(() => openUserDialog(null, { welcome: true }), 400);
 retryQueue();
 
 // Demande à l'iPhone de ne pas effacer les données de l'appli quand il
