@@ -17,7 +17,7 @@ Adresse (une fois le dépôt publié sur GitHub Pages) :
   Précédent / Pause / Suivant. L'écran reste allumé.
 - **Semaine** : les 7 jours, séances faites cochées. Touche un jour pour le modifier
   (ajouter, supprimer, réordonner, changer séries/reps/temps/repos, échanger deux jours).
-- **Historique** : séances faites, durée, nombre par semaine.
+- **Historique** : calendrier du mois (touche un jour pour voir le détail), temps total, semaines d'affilée (objectif réglable), séances par semaine.
 - **Progression** : toutes les 1 ou 2 semaines (réglable), l'appli propose +2/+3 répétitions
   et +5/+10 s de gainage ; tu acceptes ou tu repousses.
 - **Réglages** : export / import d'un fichier de sauvegarde, remise à zéro.
@@ -30,6 +30,6 @@ Adresse (une fois le dépôt publié sur GitHub Pages) :
 
 ## Tests
 ```bash
-node --test tests/entrainement/logic.test.js   # logique (16 tests)
+node --test tests/entrainement/logic.test.js   # logique (20 tests)
 node tests/entrainement/e2e.js                 # appli complète dans un navigateur simulé (Playwright)
 ```

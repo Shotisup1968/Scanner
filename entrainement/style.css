@@ -17,6 +17,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html, body {
+  overflow-x: hidden;
   margin: 0;
   background: var(--bg);
   color: var(--texte);
@@ -143,7 +144,7 @@ textarea { min-height: 110px; resize: vertical; }
 .case input { width: 28px; height: 28px; accent-color: var(--accent); flex: none; }
 
 .segments { display: flex; gap: 8px; }
-.segments button { min-height: 56px; }
+.segments button { min-height: 56px; min-width: 0; padding: 8px 6px; }
 .segments button[aria-pressed=true] { background: var(--accent); color: var(--accent-texte); border-color: var(--accent); }
 
 form[data-mode=reps] .m-temps { display: none; }
@@ -245,3 +246,18 @@ details.details summary { cursor: pointer; color: var(--doux); padding: 6px 0; }
 .seance .milieu.avec-dessin .vignette.petite { max-width: 150px; }
 .seance .milieu.avec-dessin .anneau { width: min(52vw, 210px); height: min(52vw, 210px); }
 .seance .milieu.avec-dessin .chiffres { font-size: 48px; }
+
+/* ---------- Historique : statistiques et calendrier ---------- */
+.stats-hist { display: flex; gap: 8px; margin: 12px 0; }
+.stats-hist div { flex: 1; background: var(--carte); border: 1px solid var(--bord); border-radius: var(--rayon); padding: 12px 4px; text-align: center; }
+.stats-hist b { display: block; font-size: 26px; line-height: 1.2; }
+.stats-hist span { font-size: 13px; color: var(--doux); }
+.cal-tete { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 19px; text-transform: capitalize; }
+.cal-tete .mini { min-width: 52px; font-size: 22px; }
+.cal-grille { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+.cal-noms span { text-align: center; font-size: 13px; color: var(--doux); }
+.cal-jour { min-height: 44px; padding: 0; border-radius: 12px; font-size: 16px; font-weight: 600; background: var(--carte-2); border-color: transparent; }
+.cal-jour.hors { opacity: .3; }
+.cal-jour.fait { background: var(--accent); color: var(--accent-texte); }
+.cal-jour.auj { border: 2px solid var(--texte); }
+.cal-jour.choisi { outline: 3px solid var(--bleu); outline-offset: 1px; }

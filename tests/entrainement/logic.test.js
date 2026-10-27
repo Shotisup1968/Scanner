@@ -179,3 +179,39 @@ test('prochaine séance : saute les jours libres', () => {
   p.forEach((j) => { j.exercices = []; });
   assert.strictEqual(L.prochaineSeance(p, new Date(2026, 9, 26)), null);
 });
+
+test('semaines d\'affilée : objectif atteint, semaine en cours non cassante', () => {
+  const mk = (...dates) => dates.map((d) => ({ date: d }));
+  const ref = new Date(2026, 10, 4); // mercredi 4 nov.
+  // semaine du 26 oct. : 3 séances ; semaine du 19 oct. : 3 séances ; semaine en cours : 1
+  const h = mk('2026-10-26', '2026-10-27', '2026-10-29', '2026-10-19', '2026-10-20', '2026-10-22', '2026-11-02');
+  assert.strictEqual(L.serieSemaines(h, 3, ref), 2);  // en cours pas encore réussie : ne casse pas
+  assert.strictEqual(L.serieSemaines(h, 4, ref), 0);
+  h.push(...mk('2026-11-03', '2026-11-04'));
+  assert.strictEqual(L.serieSemaines(h, 3, ref), 3);  // en cours réussie : elle s'ajoute
+  assert.strictEqual(L.serieSemaines([], 3, ref), 0);
+});
+
+test('calendrier : grille du mois, lundi en premier', () => {
+  const g = L.grilleMois(2026, 9, [{ date: '2026-10-26' }, { date: '2026-10-26' }]); // octobre 2026
+  assert.ok(g.every((s) => s.length === 7));
+  assert.strictEqual(g[0][0].cle, '2026-09-28');         // 1er oct. 2026 = jeudi
+  assert.strictEqual(g[0][3].jour, 1);
+  assert.strictEqual(g[0][0].dansMois, false);
+  const dernier = g[g.length - 1];
+  assert.strictEqual(dernier[dernier.length - 1].cle, '2026-11-01');
+  assert.strictEqual(g.flat().find((j) => j.cle === '2026-10-26').nb, 2);
+  assert.strictEqual(g.flat().filter((j) => j.dansMois).length, 31);
+  assert.strictEqual(L.grilleMois(2026, 1, []).flat().filter((j) => j.dansMois).length, 28);
+});
+
+test('sauvegarde : détail des exercices conservé, objectif validé', () => {
+  const e = L.etatInitial(new Date(2026, 9, 26));
+  e.historique.push({ id: 'a', date: '2026-10-26', jour: 0, nom: 'X', duree: 10, series: 3, manuel: false, detail: [{ nom: 'Pompes', series: 3 }] });
+  e.reglages.objectifSemaine = 3;
+  const r = L.validerSauvegarde(JSON.parse(JSON.stringify(e)));
+  assert.deepStrictEqual(r.etat.historique[0].detail, [{ nom: 'Pompes', series: 3 }]);
+  assert.strictEqual(r.etat.reglages.objectifSemaine, 3);
+  e.reglages.objectifSemaine = 99;
+  assert.strictEqual(L.validerSauvegarde(JSON.parse(JSON.stringify(e))).etat.reglages.objectifSemaine, 4);
+});

@@ -11,6 +11,7 @@
     semainesProgression: 2, // suggérer une progression toutes les 1 ou 2 semaines
     incrementReps: 2,       // +2 ou +3 répétitions
     incrementTemps: 5,      // +5 secondes de gainage
+    objectifSemaine: 4,     // séances visées par semaine (pour les « semaines d'affilée »)
     bip: true,
     vibration: true
   };
@@ -278,6 +279,41 @@
     return res;
   }
 
+  function compteSemaine(historique, debut) {
+    var c0 = cleDate(debut), c1 = cleDate(ajouterJours(debut, 6));
+    return historique.filter(function (h) { return h.date >= c0 && h.date <= c1; }).length;
+  }
+
+  // Nombre de semaines d'affilée où l'objectif est atteint. La semaine en cours
+  // compte si elle est déjà réussie, sans casser la série sinon.
+  function serieSemaines(historique, objectif, ref) {
+    var debut = debutSemaine(ref), n = 0;
+    if (compteSemaine(historique, debut) >= objectif) n = 1;
+    for (var w = 1; w < 600; w++) {
+      if (compteSemaine(historique, ajouterJours(debut, -7 * w)) >= objectif) n++;
+      else break;
+    }
+    return n;
+  }
+
+  // Grille d'un mois (semaines de 7 jours, lundi en premier). mois : 0 à 11.
+  function grilleMois(annee, mois, historique) {
+    var d = debutSemaine(new Date(annee, mois, 1)), semaines = [];
+    do {
+      var sem = [];
+      for (var i = 0; i < 7; i++) {
+        var cle = cleDate(d);
+        sem.push({
+          cle: cle, jour: d.getDate(), dansMois: d.getMonth() === mois,
+          nb: historique.filter(function (h) { return h.date === cle; }).length
+        });
+        d = ajouterJours(d, 1);
+      }
+      semaines.push(sem);
+    } while (d.getMonth() === mois);
+    return semaines;
+  }
+
   /* ---------- Progression ---------- */
 
   // Une suggestion est due si la dernière progression date de ≥ N semaines
@@ -398,7 +434,7 @@
       historique: obj.historique.filter(function (h) {
         return h && /^\d{4}-\d{2}-\d{2}$/.test(h.date);
       }).map(function (h) {
-        return {
+        var entree = {
           id: typeof h.id === 'string' && h.id ? h.id : uid(),
           date: h.date,
           jour: Math.min(6, Math.max(0, Math.round(Number(h.jour)) || 0)),
@@ -407,6 +443,12 @@
           series: Math.max(0, Math.round(Number(h.series)) || 0),
           manuel: !!h.manuel
         };
+        if (Array.isArray(h.detail)) {
+          entree.detail = h.detail.slice(0, 40).filter(function (x) { return x && x.nom; }).map(function (x) {
+            return { nom: String(x.nom).slice(0, 80), series: Math.max(0, Math.round(Number(x.series)) || 0) };
+          });
+        }
+        return entree;
       }),
       reglages: base.reglages,
       progression: base.progression
@@ -414,6 +456,7 @@
     var r = obj.reglages || {};
     etat.reglages.semainesProgression = r.semainesProgression === 1 ? 1 : 2;
     etat.reglages.incrementReps = r.incrementReps === 3 ? 3 : 2;
+    etat.reglages.objectifSemaine = [2, 3, 4, 5].indexOf(r.objectifSemaine) >= 0 ? r.objectifSemaine : 4;
     etat.reglages.incrementTemps = [5, 10].indexOf(r.incrementTemps) >= 0 ? r.incrementTemps : 5;
     etat.reglages.bip = r.bip !== false;
     etat.reglages.vibration = r.vibration !== false;
@@ -430,6 +473,7 @@
     programmeParDefaut: programmeParDefaut, etatInitial: etatInitial, copie: copie,
     formatDuree: formatDuree, formatPlage: formatPlage, formatCible: formatCible,
     dureeEstimee: dureeEstimee, construireEtapes: construireEtapes, etapeTravail: etapeTravail,
+    compteSemaine: compteSemaine, serieSemaines: serieSemaines, grilleMois: grilleMois,
     prochaineSeance: prochaineSeance, vueSemaine: vueSemaine, seancesParSemaine: seancesParSemaine,
     progressionDue: progressionDue, apercuProgression: apercuProgression,
     appliquerProgression: appliquerProgression, reporterProgression: reporterProgression,

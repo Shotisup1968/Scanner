@@ -143,6 +143,14 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   ok(/Séances réalisées \(1\)/i.test(t) && /lun\. 26 oct\. · Haut du corps/.test(t), 'historique : date + séance');
   ok(/Cette semaine\s+1/.test(t), 'compteur par semaine');
   await capture(page, '06-historique.png');
+  ok(/1\s+séance\s+\d+ min\s+d'entraînement/.test(t.replace(/\n+/g, ' ')) || /1\nséance/.test(t), 'historique : total des séances et temps d\'entraînement');
+  ok(await page.locator('.cal-jour.fait').count() === 1 && /octobre 2026/i.test(t), 'calendrier : octobre 2026, une journée colorée');
+  await page.locator('.cal-jour.fait').click();
+  t = await texte(page);
+  ok(/Pompes ×3/.test(t) && /Dips sur chaise ×3/.test(t), 'toucher un jour : détail des exercices faits');
+  await page.getByRole('button', { name: 'Mois suivant' }).click();
+  ok(/novembre 2026/i.test(await texte(page)) && await page.locator('.cal-jour.fait:not(.hors)').count() === 0, 'calendrier : mois suivant');
+  await page.getByRole('button', { name: 'Mois précédent' }).click();
 
   console.log('\n5. Personnalisation du programme');
   await page.goto(base + '#/jour/1/modifier');
@@ -216,7 +224,11 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   });
   await page.reload();
   t = await texte(page);
-  ok(/Il est temps de progresser/.test(t) && /\+2 répétitions : Pompes/.test(t) && /\+5 secondes : Planche/.test(t), 'bandeau de progression affiché (+2 reps, +5 s)');
+  ok(/Il est temps de progresser/.test(t) && /\+2 répétitions sur \d+ exercices/.test(t) && /\+5 secondes sur 2 exercices/.test(t), 'bandeau de progression compact (+2 reps, +5 s)');
+  await page.locator('summary', { hasText: 'Voir le détail' }).click();
+  t = await texte(page);
+  ok(/\+2 répétitions : Pompes/.test(t) && /\+5 secondes : Planche/.test(t), 'le détail de la progression se déplie');
+  await page.locator('summary', { hasText: 'Voir le détail' }).click();
   await capture(page, '07-progression.png');
   await page.getByRole('button', { name: 'Plus tard (3 jours)' }).click();
   ok(!/Il est temps de progresser/.test(await texte(page)), '« Plus tard » masque le bandeau');
@@ -253,8 +265,18 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   ok(etat.historique.length === 2, 'données intactes après un import refusé');
   await capture(page, '08-reglages.png');
 
+  console.log('\n7b. Aucun débordement horizontal');
+  for (const route of ['#/', '#/semaine', '#/historique', '#/reglages', '#/jour/0', '#/jour/0/modifier', '#/jour/0/exo/0']) {
+    await page.goto(base + route);
+    await page.reload();
+    const large = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    ok(large <= 0, 'pas de défilement horizontal sur ' + route + (large > 0 ? ' (+' + large + ' px)' : ''));
+  }
+
   console.log('\n8. Réglages et reprise');
+  await page.goto(base + '#/reglages');
   await page.getByRole('button', { name: '1 semaine' }).click();
+  await page.getByRole('button', { name: '3', exact: true }).click();
   await page.getByRole('button', { name: '+3' }).click();
   etat = await lu(page);
   ok(etat.reglages.semainesProgression === 1 && etat.reglages.incrementReps === 3, 'réglages de progression enregistrés');

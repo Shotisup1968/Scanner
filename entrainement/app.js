@@ -159,7 +159,7 @@
     return {
       jourIdx: idx, jour: jour, steps: L.construireEtapes(jour),
       i: 0, phase: 'attente', endsAt: null, restant: null, totalMs: 0, dernierSec: null,
-      paused: false, pauseDepuis: 0, pauseTotal: 0, debut: Date.now(), series: 0, fini: false
+      paused: false, pauseDepuis: 0, pauseTotal: 0, debut: Date.now(), series: 0, faits: {}, fini: false
     };
   }
 
@@ -251,7 +251,9 @@
 
   // Une série « par côté » ne compte qu'une fois (au second côté).
   function compterSerie(st) {
-    if (st.cote !== 1) S.series++;
+    if (st.cote === 1) return;
+    S.series++;
+    S.faits[st.ei] = (S.faits[st.ei] || 0) + 1;
   }
 
   function suivant() {
@@ -274,7 +276,9 @@
     S.recap = { duree: duree, series: S.series, nom: S.jour.nom };
     etat.historique.push({
       id: L.uid(), date: L.cleDate(new Date()), jour: S.jourIdx, nom: S.jour.nom,
-      duree: duree, series: S.series, manuel: false
+      duree: duree, series: S.series, manuel: false,
+      detail: S.jour.exercices.map(function (e, k) { return { nom: e.nom, series: S.faits[k] || 0 }; })
+        .filter(function (x) { return x.series > 0; })
     });
     sauver();
     effacerSeanceSauvee();
@@ -331,7 +335,7 @@
     if (!S || S.fini) return;
     try {
       localStorage.setItem(CLE_SEANCE, JSON.stringify({
-        jourIdx: S.jourIdx, jour: S.jour, i: S.i, series: S.series,
+        jourIdx: S.jourIdx, jour: S.jour, i: S.i, series: S.series, faits: S.faits,
         ecoule: dureeSeanceMs(), sauveA: Date.now()
       }));
     } catch (e) { /* ignore */ }
@@ -356,7 +360,7 @@
       var s = {
         jourIdx: d.jourIdx, jour: jour, steps: steps, i: i, phase: 'attente', endsAt: null, restant: null,
         totalMs: 0, dernierSec: null, paused: true, pauseDepuis: Date.now(), pauseTotal: 0,
-        debut: Date.now() - (Number(d.ecoule) || 0), series: Math.max(0, Math.round(d.series) || 0), fini: false
+        debut: Date.now() - (Number(d.ecoule) || 0), series: Math.max(0, Math.round(d.series) || 0), faits: (d.faits && typeof d.faits === 'object') ? d.faits : {}, fini: false
       };
       S = s;
       demarrerPhase(i);
@@ -408,6 +412,16 @@
     }).join('') + '</ul>';
   }
 
+  function resumeProgression() {
+    var lignes = L.apercuProgression(etat);
+    var reps = lignes.filter(function (l) { return l.indexOf('répétitions') >= 0; }).length;
+    var tps = lignes.length - reps;
+    var morceaux = [];
+    if (reps) morceaux.push('+' + etat.reglages.incrementReps + ' répétitions sur ' + reps + ' exercice' + (reps > 1 ? 's' : ''));
+    if (tps) morceaux.push('+' + etat.reglages.incrementTemps + ' secondes sur ' + tps + ' exercice' + (tps > 1 ? 's' : ''));
+    return morceaux.join(' et ');
+  }
+
   function vueAccueil() {
     var now = new Date();
     var idx = L.indexJour(now);
@@ -423,8 +437,8 @@
 
     if (L.progressionDue(etat, now)) {
       html += '<div class="carte alerte"><div class="etiquette">Progression</div><h2>Il est temps de progresser 💪</h2>' +
-        '<p class="doux petit">Si les dernières séances étaient faciles, ajoute :</p>' +
-        '<ul class="liste">' + L.apercuProgression(etat).map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' +
+        '<p class="doux petit" style="margin-bottom:4px">Si les dernières séances étaient faciles : ' + resumeProgression() + '.</p>' +
+        '<details class="details"><summary>Voir le détail</summary><ul class="liste">' + L.apercuProgression(etat).map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></details>' +
         '<div class="pile" style="margin-top:12px"><button class="primaire" style="min-height:64px;font-size:19px" data-action="progression-oui">Appliquer</button>' +
         '<button data-action="progression-plus-tard">Plus tard (3 jours)</button></div></div>';
     }
@@ -579,12 +593,56 @@
     return html;
   }
 
+  var histMois = null;   // { an, mois } affiché dans le calendrier
+  var histJour = null;   // jour sélectionné (AAAA-MM-JJ)
+
+  function dureeLongue(sec) {
+    var m = Math.round(sec / 60);
+    if (m < 60) return m + ' min';
+    return Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60);
+  }
+
+  function ligneSeance(h) {
+    var detail = (h.detail && h.detail.length)
+      ? '<br><span class="doux petit">' + h.detail.map(function (x) { return esc(x.nom) + ' ×' + x.series; }).join(' · ') + '</span>' : '';
+    return '<div class="exo-edit"><div class="corps"><b>' + esc(dateCourte(h.date)) + ' · ' + esc(h.nom) + '</b><span class="doux petit">' +
+      (h.manuel ? 'cochée à la main' : minutes(h.duree) + ' · ' + h.series + ' séries') + '</span>' + detail + '</div>' +
+      '<button class="danger" aria-label="Supprimer cette séance" data-action="suppr-hist" data-id="' + esc(h.id) + '">✕</button></div>';
+  }
+
   function vueHistorique() {
     var now = new Date();
+    if (!histMois) histMois = { an: now.getFullYear(), mois: now.getMonth() };
+    var cleAuj = L.cleDate(now);
     var semaines = L.seancesParSemaine(etat.historique, now, 6);
     var maxi = Math.max(1, Math.max.apply(null, semaines.map(function (s) { return s.nombre; })));
     var total = etat.historique.length;
+    var tempsTotal = etat.historique.reduce(function (a, h) { return a + (h.duree || 0); }, 0);
+    var objectif = etat.reglages.objectifSemaine;
+    var serie = L.serieSemaines(etat.historique, objectif, now);
     var html = '<h1>Historique</h1>';
+
+    html += '<div class="stats-hist"><div><b>' + total + '</b><span>' + (total > 1 ? 'séances' : 'séance') + '</span></div>' +
+      '<div><b>' + (tempsTotal ? dureeLongue(tempsTotal) : '—') + '</b><span>d\'entraînement</span></div>' +
+      '<div><b>' + serie + '</b><span>' + (serie > 1 ? 'semaines' : 'semaine') + ' d\'affilée</span></div></div>' +
+      '<p class="doux petit" style="text-align:center;margin-top:-4px">Une semaine compte à partir de ' + objectif + ' séances (modifiable dans les réglages).</p>';
+
+    html += '<div class="carte"><div class="cal-tete"><button class="mini" aria-label="Mois précédent" data-action="mois-prec">‹</button>' +
+      '<b>' + MOIS[histMois.mois] + ' ' + histMois.an + '</b><button class="mini" aria-label="Mois suivant" data-action="mois-suiv">›</button></div>' +
+      '<div class="cal-grille cal-noms">' + INITIALES.map(function (i) { return '<span>' + i + '</span>'; }).join('') + '</div>';
+    L.grilleMois(histMois.an, histMois.mois, etat.historique).forEach(function (sem) {
+      html += '<div class="cal-grille">' + sem.map(function (j) {
+        var cls = 'cal-jour' + (j.dansMois ? '' : ' hors') + (j.nb ? ' fait' : '') + (j.cle === cleAuj ? ' auj' : '') + (j.cle === histJour ? ' choisi' : '');
+        return '<button class="' + cls + '" data-action="jour-hist" data-cle="' + j.cle + '" aria-label="' + esc(dateCourte(j.cle)) + (j.nb ? ', ' + j.nb + ' séance' + (j.nb > 1 ? 's' : '') : '') + '">' + j.jour + '</button>';
+      }).join('') + '</div>';
+    });
+    html += '</div>';
+
+    if (histJour) {
+      var duJour = etat.historique.filter(function (h) { return h.date === histJour; });
+      html += '<h3>' + esc(dateCourte(histJour)) + '</h3>' + (duJour.length ? duJour.map(ligneSeance).join('') : '<p class="doux">Pas de séance ce jour-là.</p>');
+    }
+
     html += '<div class="carte"><div class="etiquette">Séances par semaine</div>' + semaines.map(function (s, k) {
       var d = L.depuisCle(s.debut);
       var lib = k === 0 ? 'Cette semaine' : (d.getDate() + ' ' + MOIS_COURT[d.getMonth()]);
@@ -593,22 +651,21 @@
     html += '<h3>Séances réalisées (' + total + ')</h3>';
     if (!total) html += '<p class="doux">Aucune séance pour l\'instant. Lance ta première séance depuis l\'écran « Aujourd\'hui ».</p>';
     etat.historique.slice().sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).forEach(function (h) {
-      html += '<div class="exo-edit"><div class="corps"><b>' + esc(dateCourte(h.date)) + ' · ' + esc(h.nom) + '</b><span class="doux petit">' +
-        (h.manuel ? 'cochée à la main' : minutes(h.duree) + ' · ' + h.series + ' séries') + '</span></div>' +
-        '<button class="danger" aria-label="Supprimer cette séance" data-action="suppr-hist" data-id="' + esc(h.id) + '">✕</button></div>';
+      html += ligneSeance(h);
     });
     return html;
   }
 
   function segments(cle, valeurs, courant, suffixe) {
     return '<div class="segments">' + valeurs.map(function (v) {
-      return '<button type="button" data-action="reglage" data-cle="' + cle + '" data-val="' + v + '" aria-pressed="' + (v === courant) + '">' + (cle === 'semainesProgression' ? v + (v > 1 ? ' semaines' : ' semaine') : suffixe + v) + '</button>';
+      return '<button type="button" data-action="reglage" data-cle="' + cle + '" data-val="' + v + '" aria-pressed="' + (v === courant) + '">' + (cle === 'semainesProgression' ? v + (v > 1 ? ' semaines' : ' semaine') : cle === 'objectifSemaine' ? '' + v : suffixe + v) + '</button>';
     }).join('') + '</div>';
   }
 
   function vueReglages() {
     var r = etat.reglages;
     var html = '<h1>Réglages</h1>';
+    html += '<h3>Objectif</h3><label>Séances à faire par semaine</label>' + segments('objectifSemaine', [2, 3, 4, 5], r.objectifSemaine);
     html += '<h3>Progression</h3><label>Me suggérer de progresser toutes les</label>' + segments('semainesProgression', [1, 2], r.semainesProgression);
     html += '<label>Répétitions à ajouter</label>' + segments('incrementReps', [2, 3], r.incrementReps, '+');
     html += '<label>Secondes de gainage à ajouter</label>' + segments('incrementTemps', [5, 10], r.incrementTemps, '+');
@@ -736,6 +793,11 @@
     });
   }
 
+  function decalerMois(m, n) {
+    var d = new Date(m.an, m.mois + n, 1);
+    return { an: d.getFullYear(), mois: d.getMonth() };
+  }
+
   function exporter() {
     var contenu = JSON.stringify(Object.assign({ application: 'entrainement', exporteLe: new Date().toISOString() }, etat), null, 2);
     var nom = 'entrainement-sauvegarde-' + L.cleDate(new Date()) + '.json';
@@ -808,6 +870,9 @@
       etat.reglages[el.dataset.cle] = Number(el.dataset.val);
       sauver(); render();
     },
+    'mois-prec': function () { histMois = decalerMois(histMois, -1); render(); },
+    'mois-suiv': function () { histMois = decalerMois(histMois, 1); render(); },
+    'jour-hist': function (el) { histJour = histJour === el.dataset.cle ? null : el.dataset.cle; render(); },
     'exporter': function () { exporter(); },
     'importer': function () { document.getElementById('fichier-import').click(); },
     'reinit-programme': function () {
