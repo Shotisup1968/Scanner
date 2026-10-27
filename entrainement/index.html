@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Entraînement</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Entraînement">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-64.png" type="image/png" sizes="64x64">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<main id="app"></main>
+
+<nav id="tabs" class="tabs" aria-label="Navigation">
+  <a href="#/" data-tab="accueil">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Aujourd'hui</span>
+  </a>
+  <a href="#/semaine" data-tab="semaine">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>Semaine</span>
+  </a>
+  <a href="#/historique" data-tab="historique">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <span>Historique</span>
+  </a>
+  <a href="#/reglages" data-tab="reglages">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span>Réglages</span>
+  </a>
+</nav>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-boite" role="dialog" aria-modal="true" aria-labelledby="modal-titre">
+    <h2 id="modal-titre"></h2>
+    <p id="modal-texte"></p>
+    <div id="modal-boutons" class="modal-boutons"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<input type="file" id="fichier-import" accept=".json,application/json" hidden>
+
+<noscript><p style="padding:24px">Cette application a besoin de JavaScript.</p></noscript>
+
+<script src="logic.js"></script>
+<script src="illustrations.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
