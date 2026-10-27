@@ -12,7 +12,7 @@ Adresse (une fois le dépôt publié sur GitHub Pages) :
 
 ## Utilisation
 - **Aujourd'hui** : la séance du jour est proposée → « Démarrer ».
-- **Séance guidée** : exercices au temps = compte à rebours + bips ; exercices en
+- **Séance guidée** : un petit dessin animé montre le mouvement (description complète sous « Détails ») ; exercices au temps = compte à rebours + bips ; exercices en
   répétitions = bouton « Série terminée » ; repos automatique (+10 s / passer) ;
   Précédent / Pause / Suivant. L'écran reste allumé.
 - **Semaine** : les 7 jours, séances faites cochées. Touche un jour pour le modifier
@@ -24,11 +24,12 @@ Adresse (une fois le dépôt publié sur GitHub Pages) :
 
 ## Fichiers
 - `logic.js` : programme par défaut, découpage des séances, progression, validation des imports (testé).
+- `illustrations.js` : les 17 dessins d'exercices.
 - `app.js`, `index.html`, `style.css` : écrans.
 - `service-worker.js`, `manifest.json`, `icons/` : installation et hors-ligne.
 
 ## Tests
 ```bash
-node --test tests/entrainement/logic.test.js   # logique (14 tests)
+node --test tests/entrainement/logic.test.js   # logique (16 tests)
 node tests/entrainement/e2e.js                 # appli complète dans un navigateur simulé (Playwright)
 ```

@@ -215,3 +215,33 @@ form[data-mode=temps] .m-reps { display: none; }
 .toast[hidden] { display: none; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- Dessins des exercices ---------- */
+.dessin { width: 100%; height: auto; display: block; }
+.dessin polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 8; }
+.dessin .decor polyline { stroke: var(--bord); stroke-width: 5; }
+.dessin .decor polyline:first-child { stroke-width: 3; }
+.dessin .c { stroke: #e4e4e7; }
+.dessin circle.c { fill: #e4e4e7; stroke: none; }
+.dessin .a { stroke: var(--accent); }
+.dessin.anime .pa { animation: pose-a 2.4s steps(1, end) infinite; }
+.dessin.anime .pb { animation: pose-b 2.4s steps(1, end) infinite; }
+@keyframes pose-a { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes pose-b { 0% { opacity: 0; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .dessin.anime .pa { animation: none; }
+  .dessin.anime .pb { animation: none; opacity: .35; }
+}
+
+.vignette { width: 100%; max-width: 360px; margin: 0 auto; background: var(--carte); border: 1px solid var(--bord); border-radius: var(--rayon); padding: 8px 10px; }
+.vignette.petite { max-width: 150px; padding: 4px 6px; border-radius: 12px; flex: none; }
+.pastille { display: inline-block; background: var(--orange); color: #2a1200; font-weight: 800; border-radius: 99px; padding: 4px 14px; font-size: 16px; margin: 8px auto 0; }
+details.details { margin: 8px 0 0; color: #d4d4d8; font-size: 16px; }
+details.details summary { cursor: pointer; color: var(--doux); padding: 6px 0; }
+
+.seance .milieu .vignette { max-width: min(100%, 380px); }
+.seance .milieu.avec-dessin { gap: 6px; }
+.seance .milieu.avec-dessin .vignette { max-width: 210px; }
+.seance .milieu.avec-dessin .vignette.petite { max-width: 150px; }
+.seance .milieu.avec-dessin .anneau { width: min(52vw, 210px); height: min(52vw, 210px); }
+.seance .milieu.avec-dessin .chiffres { font-size: 48px; }

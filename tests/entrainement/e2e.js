@@ -67,7 +67,11 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   await page.getByRole('button', { name: 'Démarrer' }).click();
   t = await texte(page);
   ok(/Pompes/.test(t) && /Série 1 \/ 3/.test(t), 'exercice 1, série 1/3');
-  ok(/Face au sol/.test(t), 'la description est affichée');
+  ok(await page.locator('.seance svg.dessin').count() === 1, 'le dessin de l\'exercice est affiché');
+  ok(await page.locator('.seance svg.dessin.anime').count() === 1, 'le dessin alterne deux positions');
+  ok(!/Face au sol/.test(t), 'le texte long est replié par défaut');
+  await page.locator('summary', { hasText: 'Détails' }).click();
+  ok(/Face au sol/.test(await texte(page)), 'la description reste accessible dans « Détails »');
   ok(/pectoraux/i.test(t), 'la zone travaillée est affichée');
   ok(/3 × 8-12 répétitions/.test(t), 'la cible est affichée');
   ok(await page.evaluate(() => window.__verrous) >= 1, 'verrou « écran allumé » demandé');
@@ -76,6 +80,7 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   t = await texte(page);
   ok(/Repos/.test(t) && /1:00/.test(t), 'repos automatique de 1:00');
   ok(/Ensuite : Pompes · série 2 \/ 3/.test(t), 'aperçu de la suite');
+  ok(await page.locator('.seance svg.dessin[aria-label="Pompes"]').count() === 1, 'pendant le repos : dessin de l\'exercice suivant');
   await capture(page, '03-repos.png');
   await page.clock.runFor(10000);
   ok(/0:50/.test(await texte(page)), 'le minuteur descend (0:50 après 10 s)');
@@ -181,6 +186,18 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   await page.reload();
   etat = await lu(page);
   ok(etat.programme[4].nom === 'Abdos maison', 'les modifications survivent au rechargement');
+
+  console.log('\n5b. Dessins');
+  await page.goto(base + '#/jour/1'); // après l'échange mardi/vendredi
+  ok(await page.locator('svg.dessin').count() === 4, 'jour : un dessin par exercice');
+  await page.goto(base + '#/jour/1/exo/3');
+  ok(await page.inputValue('#f-dessin') === 'birddog' && await page.inputValue('#f-tenir') === '2-3 s', 'éditeur : dessin et « tenir 2-3 s » du Bird-dog');
+  await page.selectOption('#f-dessin', 'pompes');
+  ok(await page.locator('#apercu-dessin svg[aria-label="Pompes"]').count() === 1, 'éditeur : l\'aperçu change avec le dessin choisi');
+  await page.selectOption('#f-dessin', 'birddog');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  etat = await lu(page);
+  ok(etat.programme[1].exercices[3].illus === 'birddog' && etat.programme[1].exercices[3].tenir === '2-3 s', 'dessin et durée enregistrés');
 
   console.log('\n6. Suggestion de progression');
   await ctx.close();

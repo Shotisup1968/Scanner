@@ -393,6 +393,15 @@
     return { cle: cle, seances: etat.historique.filter(function (h) { return h.date === cle; }) };
   }
 
+  function dessin(e, petite) {
+    return '<div class="vignette' + (petite ? ' petite' : '') + '">' + Illus.svg(L.dessinPour(e)) + '</div>';
+  }
+
+  function pastilleTenir(e) {
+    var t = L.tenirPour(e);
+    return t ? '<div class="pastille">⏱ Tenir ' + esc(t) + '</div>' : '';
+  }
+
   function listeExos(jour) {
     return '<ul class="liste">' + jour.exercices.map(function (e) {
       return '<li><span>' + esc(e.nom) + '</span><span class="cible">' + esc(L.formatCible(e)) + '</span></li>';
@@ -482,7 +491,7 @@
     html += '<a class="bouton" href="#/jour/' + idx + '/modifier">✎ Modifier ce jour</a></div>';
 
     p.exercices.forEach(function (e) {
-      html += '<h3>' + esc(e.nom) + '</h3><p class="doux petit" style="margin-bottom:4px">' + esc(e.zone) + ' · ' + esc(L.formatCible(e)) + (e.repos ? ' · repos ' + e.repos + ' s' : '') + '</p><p class="petit">' + esc(e.description) + '</p>';
+      html += '<h3>' + esc(e.nom) + '</h3><div style="display:flex;gap:12px;align-items:center">' + dessin(e, true) + '<p class="doux petit" style="margin:0">' + esc(e.zone) + ' · ' + esc(L.formatCible(e)) + (e.repos ? ' · repos ' + e.repos + ' s' : '') + '</p></div><p class="petit">' + esc(e.description) + '</p>';
     });
     return html;
   }
@@ -542,6 +551,12 @@
     html += '<label for="f-nom">Nom</label><input type="text" id="f-nom" name="nom" maxlength="80" required value="' + esc(e.nom) + '">';
     html += '<label for="f-zone">Zone travaillée</label><input type="text" id="f-zone" name="zone" maxlength="80" value="' + esc(e.zone) + '">';
     html += '<label for="f-desc">Description</label><textarea id="f-desc" name="description" maxlength="600">' + esc(e.description) + '</textarea>';
+    var dessinChoisi = L.dessinPour(e);
+    html += '<label for="f-dessin">Dessin</label><div class="vignette" id="apercu-dessin" style="margin-bottom:8px">' + Illus.svg(dessinChoisi) + '</div>' +
+      '<select id="f-dessin" name="illus">' + L.DESSINS.map(function (k) {
+        return '<option value="' + k + '"' + (k === dessinChoisi ? ' selected' : '') + '>' + esc(Illus.D[k].nom) + '</option>';
+      }).join('') + '</select>';
+    html += '<label for="f-tenir">Durée à tenir en position (facultatif, ex. 2-3 s)</label><input type="text" id="f-tenir" name="tenir" maxlength="20" value="' + esc(L.tenirPour(e)) + '">';
     html += '<label for="f-mode">Type d\'exercice</label><select id="f-mode" name="mode"><option value="reps"' + (e.mode === 'reps' ? ' selected' : '') + '>Répétitions</option><option value="temps"' + (e.mode === 'temps' ? ' selected' : '') + '>Au temps (maintien, compte à rebours)</option></select>';
     html += '<label for="f-series">Nombre de séries</label><input type="number" inputmode="numeric" id="f-series" name="series" min="1" max="30" value="' + e.series + '">';
     html += '<div class="deux"><div><label for="f-min"><span class="m-reps">Répétitions (min)</span><span class="m-temps">Durée min (secondes)</span></label><input type="number" inputmode="numeric" id="f-min" name="min" min="1" value="' + e.min + '"></div>' +
@@ -627,23 +642,19 @@
     if (st.type === 'work') {
       var lib = 'Série ' + st.serie + ' / ' + st.nbSeries + (st.cote ? ' · côté ' + st.cote + ' / 2' : '');
       html += '<div class="zone">' + esc(e.zone) + '</div><h1>' + esc(e.nom) + '</h1><div class="serie">' + lib + '</div><div class="cible">' + esc(L.formatCible(e)) + '</div>';
-      html += '<div class="milieu">';
-      if (st.mode === 'temps') {
-        html += anneau(S.phase === 'prep' ? 'prep' : 'travail', S.phase === 'prep' ? 'Prépare-toi…' : 'Tiens bon !');
-      } else {
-        html += '<p class="desc">' + esc(e.description) + '</p>';
-      }
+      html += '<div class="milieu' + (st.mode === 'temps' ? ' avec-dessin' : '') + '">' + dessin(e) + pastilleTenir(e);
+      if (st.mode === 'temps') html += anneau(S.phase === 'prep' ? 'prep' : 'travail', S.phase === 'prep' ? 'Prépare-toi…' : 'Tiens bon !');
       html += '</div><div class="bas">';
       if (st.mode === 'temps' && S.phase === 'prep') html += '<button class="primaire" data-action="go">Commencer maintenant</button>';
       else if (st.mode === 'temps') html += '<button class="primaire" data-action="fini-temps">J\'ai fini</button>';
       else html += '<button class="primaire" data-action="serie-finie">Série terminée</button>';
-      if (st.mode === 'temps') html += '<p class="desc petit" style="margin:10px 0 0">' + esc(e.description) + '</p>';
+      html += '<details class="details"><summary>Détails de l\'exercice</summary>' + esc(e.description) + '</details>';
     } else {
       var suiv = S.steps[S.i + 1];
       var se = suiv ? S.jour.exercices[suiv.ei] : null;
       html += '<div class="zone">' + (st.cote ? 'Change de côté' : 'Récupération') + '</div><h1>' + (st.cote ? 'Autre côté' : 'Repos') + '</h1>';
       if (se) html += '<div class="cible">Ensuite : ' + esc(se.nom) + ' · série ' + suiv.serie + ' / ' + suiv.nbSeries + (suiv.cote ? ' · côté ' + suiv.cote : '') + '</div>';
-      html += '<div class="milieu">' + anneau('repos', 'Repos') + '</div><div class="bas">' +
+      html += '<div class="milieu avec-dessin">' + anneau('repos', 'Repos') + (se ? dessin(se, true) : '') + '</div><div class="bas">' +
         '<div class="ligne"><button data-action="plus10">+10 s</button><button class="primaire" style="flex:2" data-action="passer">Passer le repos</button></div>';
     }
 
@@ -711,7 +722,8 @@
       id: null,
       nom: f.get('nom'), zone: f.get('zone'), description: f.get('description'), mode: f.get('mode'),
       series: f.get('series'), min: f.get('min'), max: f.get('max'), repos: f.get('repos'),
-      parCote: f.get('parCote') === 'on', progresse: f.get('progresse') === 'on'
+      parCote: f.get('parCote') === 'on', progresse: f.get('progresse') === 'on',
+      illus: f.get('illus'), tenir: f.get('tenir')
     });
   }
 
@@ -835,6 +847,9 @@
       if (el.checked && el.dataset.champ === 'vibration' && navigator.vibrate) navigator.vibrate(80);
     } else if (el.id === 'f-mode') {
       el.form.dataset.mode = el.value === 'temps' ? 'temps' : 'reps';
+    } else if (el.id === 'f-dessin') {
+      document.getElementById('apercu-dessin').innerHTML = Illus.svg(el.value);
+      el.form.tenir.value = L.tenirPour({ illus: el.value });
     } else if (el.id === 'biblio') {
       var b = bibliotheque()[Number(el.value)];
       var f = el.form;
@@ -843,6 +858,9 @@
       f.mode.value = b.mode; f.dataset.mode = b.mode;
       f.series.value = b.series; f.min.value = b.min; f.max.value = b.max; f.repos.value = b.repos;
       f.parCote.checked = b.parCote; f.progresse.checked = b.progresse;
+      var dc = L.dessinPour(b);
+      f.illus.value = dc; f.tenir.value = L.tenirPour(b);
+      document.getElementById('apercu-dessin').innerHTML = Illus.svg(dc);
     } else if (el.id === 'fichier-import') {
       importer(el);
     }

@@ -1,11 +1,12 @@
 const CACHE_PREFIX = 'entrainement-cache-';
-const CACHE_NAME = CACHE_PREFIX + 'v1';
+const CACHE_NAME = CACHE_PREFIX + 'v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './style.css',
   './logic.js',
+  './illustrations.js',
   './app.js',
   './icons/favicon-64.png',
   './icons/icon-192.png',

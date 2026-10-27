@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const L = require('../../entrainement/logic.js');
+const Illus = require('../../entrainement/illustrations.js');
 
 const lundi = new Date(2026, 9, 26); // lundi 26 oct. 2026
 
@@ -136,4 +137,36 @@ test('sauvegarde : aller-retour exact et refus des fichiers invalides', () => {
 test('formatage du temps', () => {
   assert.strictEqual(L.formatDuree(65), '1:05');
   assert.strictEqual(L.formatDuree(0), '0:00');
+});
+
+test('dessins : chaque dessin existe et chaque exercice du programme en a un propre', () => {
+  assert.deepStrictEqual([...L.DESSINS].sort(), [...Illus.CLES].sort());
+  L.DESSINS.forEach((k) => {
+    const svg = Illus.svg(k);
+    assert.ok(svg.startsWith('<svg') && svg.includes('<polyline') && svg.includes('<circle'), k);
+  });
+  const attendu = { 'Pompes': 'pompes', 'Dips sur chaise': 'dips', 'Planche': 'planche', 'Planche latérale': 'lateral',
+    'Crunchs classiques': 'crunch', 'Crunchs obliques': 'obliques', 'Relevé de jambes allongé': 'releve',
+    'Superman': 'superman', 'Extension dorsale légère': 'extension', 'Mountain climbers lents': 'mountain',
+    'Bird-dog': 'birddog', 'Étirement pectoraux/épaules': 'etirpecs', 'Marche ou vélo tranquille': 'marche',
+    'Étirements généraux': 'etirgen', 'Rowing élastique ou bouteilles': 'rowing' };
+  L.programmeParDefaut().forEach((j) => j.exercices.forEach((e) => {
+    if (attendu[e.nom]) assert.strictEqual(L.dessinPour(e), attendu[e.nom], e.nom);
+    else assert.strictEqual(L.dessinPour(e), 'enfant', e.nom); // étirement lombaires (position de l'enfant)
+  }));
+  assert.strictEqual(L.dessinPour({ nom: 'Burpees' }), 'generique');
+  assert.strictEqual(L.dessinPour({ nom: 'Burpees', illus: 'pompes' }), 'pompes');
+  assert.strictEqual(L.dessinPour({ nom: 'x', illus: 'nimportequoi' }), 'generique');
+});
+
+test('dessins : durée à tenir par défaut et personnalisée', () => {
+  assert.strictEqual(L.tenirPour({ nom: 'Bird-dog' }), '2-3 s');
+  assert.strictEqual(L.tenirPour({ nom: 'Superman' }), '1-2 s');
+  assert.strictEqual(L.tenirPour({ nom: 'Pompes' }), '');
+  assert.strictEqual(L.tenirPour({ nom: 'Bird-dog', tenir: '5 s' }), '5 s');
+  assert.strictEqual(L.tenirPour({ nom: 'Bird-dog', tenir: '' }), '');
+  const e = L.normaliserExercice({ nom: 'A', illus: 'pompes', tenir: '  3 s  ' });
+  assert.strictEqual(e.illus, 'pompes');
+  assert.strictEqual(e.tenir, '3 s');
+  assert.strictEqual(L.normaliserExercice({ nom: 'A', illus: 'zzz' }).illus, '');
 });

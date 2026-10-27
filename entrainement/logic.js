@@ -15,6 +15,11 @@
     vibration: true
   };
 
+  // Dessins disponibles (voir illustrations.js) et durée de maintien par défaut.
+  var DESSINS = ['pompes', 'dips', 'rowing', 'planche', 'crunch', 'releve', 'lateral', 'superman',
+    'extension', 'obliques', 'mountain', 'birddog', 'etirpecs', 'enfant', 'marche', 'etirgen', 'generique'];
+  var TENIR_DEFAUT = { birddog: '2-3 s', superman: '1-2 s' };
+
   var uidCompteur = 0;
   function uid() {
     uidCompteur += 1;
@@ -47,6 +52,34 @@
     var ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
     var ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
     return Math.round((ub - ua) / 86400000);
+  }
+
+  /* ---------- Dessin d'un exercice ---------- */
+
+  function sansAccents(t) {
+    return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  // Dessin choisi, sinon deviné d'après le nom de l'exercice.
+  function dessinPour(e) {
+    if (e && DESSINS.indexOf(e.illus) >= 0) return e.illus;
+    var n = sansAccents(e && e.nom);
+    var regles = [
+      [/enfant|etirement.*lombaire/, 'enfant'], [/etirement.*(pect|epaule)/, 'etirpecs'], [/etirement/, 'etirgen'],
+      [/planche.*lat|lateral/, 'lateral'], [/planche|gainage/, 'planche'],
+      [/oblique/, 'obliques'], [/crunch|abdo/, 'crunch'], [/releve|jambe/, 'releve'],
+      [/pompe/, 'pompes'], [/dip/, 'dips'], [/rowing|tirage/, 'rowing'], [/superman/, 'superman'],
+      [/extension|dorsal/, 'extension'], [/mountain|climber/, 'mountain'], [/bird|dog/, 'birddog'],
+      [/marche|velo|course|cardio/, 'marche']
+    ];
+    for (var i = 0; i < regles.length; i++) if (regles[i][0].test(n)) return regles[i][1];
+    return 'generique';
+  }
+
+  // Durée à tenir (« 2-3 s ») : celle de l'exercice, sinon celle par défaut du dessin.
+  function tenirPour(e) {
+    if (typeof e.tenir === 'string') return e.tenir;
+    return TENIR_DEFAUT[dessinPour(e)] || '';
   }
 
   /* ---------- Programme par défaut ---------- */
@@ -112,7 +145,11 @@
       ] },
       { nom: 'Libre', exercices: [] },
       { nom: 'Libre', exercices: [] }
-    ].map(function (j, i) { j.id = i; return j; });
+    ].map(function (j, i) {
+      j.id = i;
+      j.exercices.forEach(function (e) { e.illus = dessinPour(e); });
+      return j;
+    });
   }
 
   function etatInitial(maintenant) {
@@ -309,7 +346,7 @@
     var min = n(e.min, 10, 1, plafond);
     var max = n(e.max, min, 1, plafond);
     if (max < min) max = min;
-    return {
+    var r = {
       id: typeof e.id === 'string' && e.id ? e.id : uid(),
       nom: String(e.nom || 'Exercice').trim().slice(0, 80) || 'Exercice',
       zone: String(e.zone || '').trim().slice(0, 80),
@@ -319,8 +356,11 @@
       min: min, max: max,
       parCote: !!e.parCote,
       repos: n(e.repos, 30, 0, 600),
-      progresse: !!e.progresse
+      progresse: !!e.progresse,
+      illus: DESSINS.indexOf(e.illus) >= 0 ? e.illus : ''
     };
+    if (typeof e.tenir === 'string') r.tenir = e.tenir.trim().slice(0, 20);
+    return r;
   }
 
   /* ---------- Sauvegarde : validation à l'import ---------- */
@@ -384,7 +424,7 @@
     progressionDue: progressionDue, apercuProgression: apercuProgression,
     appliquerProgression: appliquerProgression, reporterProgression: reporterProgression,
     deplacer: deplacer, echangerJours: echangerJours, normaliserExercice: normaliserExercice,
-    validerSauvegarde: validerSauvegarde, DESCRIPTIONS: D
+    validerSauvegarde: validerSauvegarde, DESCRIPTIONS: D, DESSINS: DESSINS, dessinPour: dessinPour, tenirPour: tenirPour
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Logic;
