@@ -168,3 +168,7 @@ d'utilisation, de copie, de modification ou de redistribution n'est
 accordée. Voir `js/vendor/THIRD_PARTY_NOTICES.md` pour les licences des
 bibliothèques tierces embarquées (jsPDF, Tesseract.js), qui restent
 soumises à leurs licences respectives (MIT / Apache-2.0).
+
+## Autres applis du dépôt
+
+- `entrainement/` — appli de sport à la maison guidée pas à pas (voir `entrainement/LISEZMOI.md`).
