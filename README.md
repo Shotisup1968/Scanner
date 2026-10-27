@@ -141,14 +141,14 @@ dans les réglages :
 
   ```
   Réf. réception;Date;Saisi par;Fournisseur;N° bon de livraison;Type;Produit;Pièces;Grammage (g);Poids total (kg)
-  NPCD-ARNAUD-001;24/10/2026;Arnaud;Val d'Allier;1;Saucisson;Pur porc;34;170;5,78
+  NPCD-ARNAUD-001;24/10/2026;Arnaud;Salaisons du Lot;1;Saucisson;Pur porc;34;170;5,78
   ```
 
 - **Import base de données / Notion** : virgule, format technique
 
   ```
   reception_id,date_reception,utilisateur,fournisseur,bon_livraison,categorie,produit,pieces,grammage_g,poids_total_kg
-  NPCD-ARNAUD-001,2026-10-24,Arnaud,Val d'Allier,1,Saucisson,Pur porc,34,170,5.780
+  NPCD-ARNAUD-001,2026-10-24,Arnaud,Salaisons du Lot,1,Saucisson,Pur porc,34,170,5.780
   ```
 
 ## Confidentialité

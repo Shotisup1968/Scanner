@@ -145,7 +145,7 @@
     <section class="settings-group">
       <h3>Envoi par mail</h3>
       <label>Adresse qui reçoit les réceptions
-        <input type="email" id="in-email" placeholder="commandes@notoriouspig.eu" autocomplete="email" inputmode="email">
+        <input type="email" id="in-email" placeholder="ex. commandes@votre-domaine.fr" autocomplete="email" inputmode="email">
       </label>
       <p class="muted small">À la validation, Mail s'ouvre avec l'adresse, l'objet et le détail de la réception déjà remplis : il reste à appuyer sur « Envoyer ».</p>
     </section>
@@ -277,13 +277,16 @@
       <input type="text" id="in-user-first" maxlength="30" autocomplete="given-name" autocapitalize="words">
     </label>
     <label>Adresse mail
-      <input type="email" id="in-user-email" autocomplete="email" inputmode="email" placeholder="prenom@notoriouspig.eu">
+      <input type="email" id="in-user-email" autocomplete="email" inputmode="email" placeholder="prenom@votre-domaine.fr">
     </label>
-    <p class="muted small">Pas de mot de passe. Le prénom et l'adresse figurent dans chaque réception envoyée.</p>
+    <label id="wrap-dest">Adresse qui reçoit les réceptions
+      <input type="email" id="in-dest" autocomplete="off" inputmode="email" placeholder="ex. commandes@votre-domaine.fr">
+    </label>
+    <p class="muted small">Pas de mot de passe. Le prénom et l'adresse figurent dans chaque réception envoyée. Les adresses restent sur ce téléphone.</p>
     <div class="dlg-actions">
-      <button value="delete" class="text-btn danger" id="btn-delete-user">Supprimer</button>
+      <button value="delete" class="text-btn danger" id="btn-delete-user" formnovalidate>Supprimer</button>
       <span class="spacer"></span>
-      <button value="cancel" class="text-btn">Annuler</button>
+      <button value="cancel" class="text-btn" formnovalidate>Annuler</button>
       <button value="ok" class="primary-btn">OK</button>
     </div>
   </form>
