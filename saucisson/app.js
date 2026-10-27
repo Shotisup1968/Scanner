@@ -22,7 +22,8 @@ function emptyDraft() {
 // email : boîte qui reçoit les réceptions ; serverUrl/serverKey : script
 // d'envoi automatique hébergé chez OVH (voir serveur-ovh/).
 const DEFAULT_EMAIL = 'commandes@notoriouspig.eu';
-const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '' };
+// deviceNumber : numéro de ce téléphone (GSM), 1 = premier appareil, 2 = l'associé…
+const DEFAULT_SETTINGS = { email: DEFAULT_EMAIL, serverUrl: '', serverKey: '', deviceNumber: 1 };
 
 // Types de produits reçus. Les données d'avant leur ajout sont des saucissons.
 const CATEGORIES = ['Saucisson', 'Fuet', 'Noix d\'épaule', 'Terrine', 'Rillettes'];
@@ -79,6 +80,7 @@ function loadState() {
     loaded.receptions.forEach((r) => normalizeLines(Array.isArray(r.lines) ? r.lines : (r.lines = [])));
     loaded.catalog = normalizeCatalog(loaded.catalog);
     loaded.lastCategory = validCategory(s.lastCategory);
+    loaded.settings.deviceNumber = validDeviceNumber(loaded.settings.deviceNumber);
     // Adresse de Notorious PIG par défaut si aucune n'a été saisie.
     if (!loaded.settings.email) loaded.settings.email = DEFAULT_EMAIL;
     return loaded;
@@ -493,9 +495,24 @@ $('btn-clear-draft').addEventListener('click', async () => {
 
 // ---------------------------------------------------------------- validation
 
+function validDeviceNumber(n) {
+  const v = parseInt(n, 10);
+  return v >= 1 && v <= 999 ? v : 1;
+}
+
+function deviceTag() {
+  return `SAUCISSON-GSM${state.settings.deviceNumber}`;
+}
+
+// Référence lisible : appli + téléphone + date + n° du jour sur ce téléphone,
+// ex. SAUCISSON-GSM1-27-10-2026-01. Le plus grand n° existant + 1, pour ne
+// jamais réutiliser un numéro après une suppression.
 function newReceptionId(date) {
-  const n = state.receptions.filter((r) => r.date === date).length + 1;
-  return `R${date.replace(/-/g, '')}-${String(n).padStart(2, '0')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const prefix = `${deviceTag()}-${frDate(date).replace(/\//g, '-')}-`;
+  const max = state.receptions
+    .filter((r) => r.id.startsWith(prefix))
+    .reduce((m, r) => Math.max(m, parseInt(r.id.slice(prefix.length), 10) || 0), 0);
+  return prefix + String(max + 1).padStart(2, '0');
 }
 
 $('btn-validate').addEventListener('click', () => {
@@ -602,9 +619,9 @@ function slug(s) {
 function csvFileName(receptions) {
   if (receptions.length === 1) {
     const r = receptions[0];
-    return `reception_${frDate(r.date).replace(/\//g, '-')}${r.supplier ? '_' + slug(r.supplier) : ''}.csv`;
+    return `${r.id}${r.supplier ? '_' + slug(r.supplier) : ''}.csv`;
   }
-  return `receptions_${frDate(today()).replace(/\//g, '-')}_${receptions.length}.csv`;
+  return `${deviceTag()}_${receptions.length}-receptions_${frDate(today()).replace(/\//g, '-')}.csv`;
 }
 
 function markExported(receptions) {
@@ -702,12 +719,15 @@ function receptionSummary(r) {
   ].join('\n');
 }
 
+// "[SAUCISSON GSM1] Réception 27/10/2026 - Val d'Allier" : repérable et
+// triable dans la boîte mail.
 function mailSubject(receptions) {
+  const tag = `[${deviceTag().replace('-', ' ')}]`;
   if (receptions.length === 1) {
     const r = receptions[0];
-    return `Réception stock ${r.date}${r.supplier ? ' - ' + r.supplier : ''}`;
+    return `${tag} Réception ${frDate(r.date)}${r.supplier ? ' - ' + r.supplier : ''}`;
   }
-  return `Réceptions stock (${receptions.length}) - ${today()}`;
+  return `${tag} ${receptions.length} réceptions - ${frDate(today())}`;
 }
 
 // iOS ne permet pas de joindre un fichier via un lien mailto : le détail et
@@ -911,6 +931,7 @@ $('btn-test-server').addEventListener('click', async () => {
 $('btn-settings').addEventListener('click', () => {
   $('in-separator').value = state.separator;
   $('in-email').value = state.settings.email;
+  $('in-device').value = state.settings.deviceNumber;
   $('in-server-url').value = state.settings.serverUrl;
   $('in-server-key').value = state.settings.serverKey;
   renderBackupInfo();
@@ -920,6 +941,7 @@ $('dlg-settings').addEventListener('close', () => {
   if ($('dlg-settings').returnValue !== 'ok') return;
   state.separator = $('in-separator').value === ';' ? ';' : ',';
   state.settings.email = $('in-email').value.trim();
+  state.settings.deviceNumber = validDeviceNumber($('in-device').value);
   state.settings.serverUrl = $('in-server-url').value.trim();
   state.settings.serverKey = $('in-server-key').value.trim();
   saveState();

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'saucisson-cache-';
-const CACHE_NAME = CACHE_PREFIX + 'v5';
+const CACHE_NAME = CACHE_PREFIX + 'v6';
 const ASSETS = [
   './',
   './index.html',

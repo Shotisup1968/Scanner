@@ -38,7 +38,8 @@ function valider_reception($r): ?array
     if (!is_array($r)) return null;
     $id = (string) ($r['id'] ?? '');
     $date = (string) ($r['date'] ?? '');
-    if (!preg_match('/^R\d{8}-\d{2}-[A-Z0-9]{4}$/', $id)) return null;
+    // Référence actuelle (SAUCISSON-GSM1-27-10-2026-01) ou ancienne (R20261024-01-ABCD).
+    if (!preg_match('/^(SAUCISSON-GSM\d{1,3}-\d{2}-\d{2}-\d{4}-\d{2,4}|R\d{8}-\d{2}-[A-Z0-9]{4})$/', $id)) return null;
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return null;
     $lignes = $r['lines'] ?? null;
     if (!is_array($lignes) || count($lignes) < 1 || count($lignes) > 500) return null;
@@ -135,9 +136,11 @@ function entete_utf8(string $s): string
 function envoyer_mail(array $config, array $receptions, array $rows): bool
 {
     $premiere = $receptions[0];
+    // "[SAUCISSON GSM1] Réception 27/10/2026 - Val d'Allier"
+    $tag = preg_match('/^SAUCISSON-GSM(\d+)/', $premiere['id'], $m) ? '[SAUCISSON GSM' . $m[1] . '] ' : '[SAUCISSON] ';
     $sujet = count($receptions) === 1
-        ? 'Réception stock ' . $premiere['date'] . ($premiere['fournisseur'] !== '' ? ' - ' . $premiere['fournisseur'] : '')
-        : 'Réceptions stock (' . count($receptions) . ') - ' . date('Y-m-d');
+        ? $tag . 'Réception ' . date_fr($premiere['date']) . ($premiere['fournisseur'] !== '' ? ' - ' . $premiere['fournisseur'] : '')
+        : $tag . count($receptions) . ' réceptions - ' . date('d/m/Y');
 
     $corps = [];
     foreach ($receptions as $r) {
@@ -164,7 +167,7 @@ function envoyer_mail(array $config, array $receptions, array $rows): bool
     $corps[] = 'Le fichier CSV est en pièce jointe (s\'ouvre dans Excel).';
 
     $nomFichier = count($receptions) === 1
-        ? 'reception_' . str_replace('/', '-', date_fr($premiere['date'])) . '_' . $premiere['id'] . '.csv'
+        ? $premiere['id'] . '.csv'
         : 'receptions_' . date('d-m-Y') . '.csv';
     $csv = "\xEF\xBB\xBF" . csv_texte(array_merge([COLONNES_FR], lignes_fr($rows)));
 

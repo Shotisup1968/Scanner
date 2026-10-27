@@ -131,6 +131,14 @@
     <h2>Réglages</h2>
 
     <section class="settings-group">
+      <h3>Ce téléphone</h3>
+      <label>Numéro du GSM
+        <input type="number" id="in-device" min="1" max="999" step="1" inputmode="numeric">
+      </label>
+      <p class="muted small">1 pour le premier téléphone, 2 pour l'associé, 3 et suivants pour les employés. Il apparaît dans la référence de chaque réception (ex. SAUCISSON-GSM1-27-10-2026-01) et dans l'objet des mails.</p>
+    </section>
+
+    <section class="settings-group">
       <h3>Envoi par mail</h3>
       <label>Adresse qui reçoit les réceptions
         <input type="email" id="in-email" placeholder="commandes@notoriouspig.eu" autocomplete="email" inputmode="email">
