@@ -170,3 +170,12 @@ test('dessins : durée à tenir par défaut et personnalisée', () => {
   assert.strictEqual(e.tenir, '3 s');
   assert.strictEqual(L.normaliserExercice({ nom: 'A', illus: 'zzz' }).illus, '');
 });
+
+test('prochaine séance : saute les jours libres', () => {
+  const p = L.programmeParDefaut();
+  assert.deepStrictEqual(L.prochaineSeance(p, new Date(2026, 9, 26)), { idx: 1, dans: 1 }); // lundi -> mardi
+  assert.deepStrictEqual(L.prochaineSeance(p, new Date(2026, 9, 30)), { idx: 0, dans: 3 }); // vendredi -> lundi
+  assert.deepStrictEqual(L.prochaineSeance(p, new Date(2026, 10, 1)), { idx: 0, dans: 1 }); // dimanche -> lundi
+  p.forEach((j) => { j.exercices = []; });
+  assert.strictEqual(L.prochaineSeance(p, new Date(2026, 9, 26)), null);
+});

@@ -129,6 +129,7 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   await page.getByRole('link', { name: 'Retour à l\'accueil' }).click();
   t = await texte(page);
   ok(/déjà faite aujourd'hui/.test(t) && /1 séance cette semaine/.test(t), 'accueil : séance cochée, 1 séance cette semaine');
+  ok(/Prochaine séance · demain/i.test(t) && /Mardi · Gainage et abdos/.test(t), 'accueil : la séance de demain est proposée directement');
 
   console.log('\n4. Vue semaine, historique');
   await page.getByRole('link', { name: 'Semaine' }).click();
@@ -276,6 +277,11 @@ const lu = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('entrai
   ({ ctx, page, erreurs: erreurs } = await nouvellePage(browser, { time: new Date(2026, 9, 31, 10, 0, 0) }));
   await page.goto(base);
   ok(/jour libre/.test(await texte(page)), 'samedi : jour libre');
+  ok(/Prochaine séance · dans 2 jours/i.test(await texte(page)) && /Lundi · Haut du corps/.test(await texte(page)), 'samedi : la prochaine séance (lundi) est proposée');
+  await page.getByRole('button', { name: 'Commencer quand même' }).click();
+  ok(/Pompes/.test(await texte(page)), '« Commencer quand même » lance la séance de lundi');
+  await page.getByRole('button', { name: 'Quitter' }).click();
+  await page.getByRole('button', { name: 'Abandonner sans enregistrer' }).click();
   await page.goto(base + '#/jour/2');
   await page.getByRole('button', { name: 'Marquer comme faite' }).click();
   ok(await page.locator('text=Faite cette semaine').count() === 1, 'mercredi marqué comme fait');

@@ -429,18 +429,27 @@
         '<button data-action="progression-plus-tard">Plus tard (3 jours)</button></div></div>';
     }
 
-    html += '<div class="carte accentuee"><div class="etiquette">Séance du jour</div>';
+    html += '<div class="carte' + (faite ? '' : ' accentuee') + '"><div class="etiquette">Séance du jour</div>';
     if (jour.exercices.length) {
       html += '<h2>' + esc(L.JOURS[idx]) + ' · ' + esc(jour.nom) + '</h2>' +
         '<p class="doux petit">' + jour.exercices.length + ' exercices · environ ' + minutes(L.dureeEstimee(jour)) +
         (faite ? ' · <b style="color:var(--accent)">✓ déjà faite aujourd\'hui</b>' : '') + '</p>' +
-        listeExos(jour) +
-        '<div style="margin-top:14px"><button class="primaire" data-action="demarrer" data-jour="' + idx + '">' + (faite ? 'Refaire la séance' : 'Démarrer') + '</button></div>';
+        (faite ? '' : listeExos(jour)) +
+        '<div style="margin-top:14px"><button class="' + (faite ? '' : 'primaire') + '" data-action="demarrer" data-jour="' + idx + '">' + (faite ? 'Refaire la séance' : 'Démarrer') + '</button></div>';
     } else {
-      html += '<h2>' + esc(L.JOURS[idx]) + ' · jour libre</h2><p class="doux">Pas de séance prévue. Repose-toi, ou choisis une séance dans la semaine.</p>' +
-        '<a class="bouton" href="#/semaine">Voir la semaine</a>';
+      html += '<h2>' + esc(L.JOURS[idx]) + ' · jour libre</h2><p class="doux" style="margin:0">Pas de séance prévue aujourd\'hui. Repose-toi !</p>';
     }
     html += '</div>';
+
+    // Séance du jour faite ou jour libre : on propose directement la suivante.
+    var proch = (faite || !jour.exercices.length) ? L.prochaineSeance(etat.programme, now) : null;
+    if (proch) {
+      var pj = etat.programme[proch.idx];
+      html += '<div class="carte accentuee"><div class="etiquette">Prochaine séance · ' + (proch.dans === 1 ? 'demain' : 'dans ' + proch.dans + ' jours') + '</div>' +
+        '<h2>' + esc(L.JOURS[proch.idx]) + ' · ' + esc(pj.nom) + '</h2>' +
+        '<p class="doux petit">' + pj.exercices.length + ' exercices · environ ' + minutes(L.dureeEstimee(pj)) + '</p>' +
+        '<div style="margin-top:6px"><button class="primaire" data-action="demarrer" data-jour="' + proch.idx + '">Commencer quand même</button></div></div>';
+    }
 
     var sem = L.vueSemaine(etat.historique, now);
     html += '<a href="#/semaine" style="text-decoration:none;color:inherit"><div class="bandeau">' + sem.map(function (j) {

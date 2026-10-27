@@ -237,6 +237,16 @@
     return -1;
   }
 
+  // Prochaine séance prévue après aujourd'hui (jours libres sautés) : { idx, dans } ou null.
+  function prochaineSeance(programme, maintenant) {
+    var auj = indexJour(maintenant);
+    for (var d = 1; d <= 7; d++) {
+      var idx = (auj + d) % 7;
+      if (programme[idx].exercices.length) return { idx: idx, dans: d };
+    }
+    return null;
+  }
+
   /* ---------- Semaine et historique ---------- */
 
   // Pour chaque jour de la semaine contenant `ref` : la date et les séances faites ce jour-là.
@@ -420,7 +430,7 @@
     programmeParDefaut: programmeParDefaut, etatInitial: etatInitial, copie: copie,
     formatDuree: formatDuree, formatPlage: formatPlage, formatCible: formatCible,
     dureeEstimee: dureeEstimee, construireEtapes: construireEtapes, etapeTravail: etapeTravail,
-    vueSemaine: vueSemaine, seancesParSemaine: seancesParSemaine,
+    prochaineSeance: prochaineSeance, vueSemaine: vueSemaine, seancesParSemaine: seancesParSemaine,
     progressionDue: progressionDue, apercuProgression: apercuProgression,
     appliquerProgression: appliquerProgression, reporterProgression: reporterProgression,
     deplacer: deplacer, echangerJours: echangerJours, normaliserExercice: normaliserExercice,
