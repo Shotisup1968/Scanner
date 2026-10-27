@@ -177,7 +177,8 @@
 
     <section class="settings-group">
       <h3>Sauvegarde</h3>
-      <p class="muted small">Crée un fichier avec tout le contenu de l'appli (réceptions, produits, fournisseurs). Garde-le dans Fichiers, Drive ou un mail pour tout récupérer sur un autre téléphone ou après une suppression de l'appli.</p>
+      <p class="muted small">Crée un fichier avec tout le contenu de l'appli (réceptions, produits, fournisseurs, utilisateurs). Garde-le dans Fichiers, Drive ou un mail pour tout récupérer sur un autre téléphone ou après une suppression de l'appli.</p>
+      <p class="muted small"><strong>Chaque mois</strong>, l'appli te le rappelle d'un appui à l'ouverture. Avec l'envoi automatique OVH, elle l'envoie toute seule par mail.</p>
       <p class="small" id="backup-info"></p>
       <div class="backup-actions">
         <button type="button" class="primary-btn" id="btn-backup">Sauvegarder</button>
@@ -226,6 +227,18 @@
     <div class="dlg-actions">
       <button value="cancel" class="text-btn">Annuler</button>
       <button value="ok" class="primary-btn accent" id="confirm-ok">Supprimer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-backup">
+  <form method="dialog">
+    <h2>Sauvegarde du mois</h2>
+    <p id="backup-reminder-text" class="confirm-message"></p>
+    <p class="muted small">Elle te permet de tout retrouver si tu supprimes l'icône ou changes de téléphone. Choisis ensuite Fichiers, Drive ou Mail.</p>
+    <div class="dlg-actions">
+      <button type="button" class="text-btn" id="btn-backup-later">Demain</button>
+      <button type="button" class="primary-btn accent" id="btn-backup-now">Sauvegarder</button>
     </div>
   </form>
 </dialog>

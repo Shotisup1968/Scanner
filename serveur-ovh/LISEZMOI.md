@@ -27,6 +27,9 @@ le jour où la base de données existera, y enregistrera les réceptions
 - `config.php` contient la clé : ne jamais l'envoyer sur GitHub.
 - Sans réseau, l'appli garde la réception « Envoi en attente » et la renvoie
   automatiquement dès que le réseau revient.
+- **Sauvegarde mensuelle automatique** : chaque mois, l'appli envoie toute seule
+  un fichier de sauvegarde (réceptions, produits, utilisateurs) par mail à la
+  boîte de l'entreprise. Pour restaurer : Réglages → Restaurer une sauvegarde.
 - Une réception renvoyée deux fois ne déclenche pas de second mail (le
   journal sert de mémoire).
 - Le mail affiche le prénom de l'utilisateur comme expéditeur et « Répondre »
